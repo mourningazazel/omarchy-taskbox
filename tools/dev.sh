@@ -9,6 +9,7 @@
 #                                  live integration tests (see tests/live/run.sh)
 #   tools/dev.sh test multimonitor [--facade]
 #                                  on a virtual (headless) second monitor
+#   tools/dev.sh test renderers    hover previews under each Qt renderer / GPU stack
 #   tools/dev.sh ipc <fn> [arg]    call the widget's IPC API (state, check, icon, …)
 #   tools/dev.sh reload            restart the Omarchy shell (QML is cached by path)
 #   tools/dev.sh logs [-f]         shell log lines about Taskbox / QML errors
@@ -60,6 +61,9 @@ case "${1:-}" in
     fi
     if [[ ${2:-} == multimonitor ]]; then
       exec "$HERE/tests/live/multimonitor.sh" "${@:3}"
+    fi
+    if [[ ${2:-} == renderers ]]; then
+      exec "$HERE/tests/renderers/run.sh" "${@:3}"
     fi
     status=0
     echo "== consistency";  "$HERE/tests/manifest.sh" || status=1
@@ -130,7 +134,7 @@ case "${1:-}" in
     esac
     ;;
   *)
-    sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
     [[ -z ${1:-} ]] || exit 1
     ;;
 esac

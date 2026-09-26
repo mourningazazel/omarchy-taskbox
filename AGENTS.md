@@ -32,10 +32,12 @@ list/focus/close only (`integrated` stays false).
 | `TaskButton.qml` | One button (horizontal: icon + title + ×; vertical: icon only). Mouse: click, middle, right, drag, Alt+drag. |
 | `TaskMenu.qml` | Right-click window menu (`PopupCard`). |
 | `ColorPicker.qml` | Colour popover for the custom highlight (wheel, brightness, 5 suggestions), shown as a card inside the settings popup. |
-| `SettingsPopup.qml` | Settings popup (`PopupCard`) from `qs.Ui` controls; writes via `saveSetting()`. |
+| `SettingsPopup.qml` | Settings popup (`KeyboardPanel`) from `qs.Ui` controls; writes via `saveSetting()`. |
+| `WindowPreview.qml` | Hover thumbnail (`PopupWindow` anchored like the bar's tooltip): hover/show timers, the grim capture `Process`, per-window picture cache, icon fallback. |
 | `hypr/taskbox.lua` | Hyprland side: Alt binds, hover rule, hooks, and the `Taskbox.*` actions. **Tested against a mock `hl`.** |
 | `tests/` | See [Testing](#testing). |
 | `tools/dev.sh` | Dev helpers: test, ipc, reload, logs, validate, state, lua, events, probe windows. |
+| `tests/renderers/` | Renderer matrix for previews: the capture + display path in a separate `qs -p` per Qt renderer. |
 | `.github/workflows/test.yml` | CI: consistency + unit + Lua tests. |
 | `docs/` | README screenshots. |
 
@@ -171,6 +173,11 @@ keybinds) are caught. The widget also learns origins live and merges the
 | `previewHighlight` | A picked/typed colour shows on the buttons immediately; the `omarchy bar set` write is debounced, and the preview is dropped once the setting matches. |
 | `checkCompat()` 6 s after start | Lists features whose Omarchy prerequisites are missing (`unavailable`), logs `[taskbox] unavailable here: …` once, and shows it in the settings popup. |
 | Button `Component.onDestruction` | A window can close under the pointer or mid-drag: hide tooltips, drop hover, cancel the drag. |
+| Previews via `grim -T <stableId>`, not `ScreencopyView` | Quickshell's in-process `ScreencopyView` imports the captured dmabuf with EGL/Vulkan and calls `qFatal()` if the driver refuses (`eglCreateImage` failure etc.) — that would abort the whole shell (bar, notifications) on an unlucky GPU/driver combo. grim runs as its own process with shm buffers: the compositor does the copy (as for screenshots), the shell only decodes a small PNG. A failure costs one thumbnail (exit 3/4 → icon placeholder). ~100 ms per capture incl. hyprctl + jq; ~35 ms CPU in grim. |
+| Preview timing: capture at 150 ms, show at 400 ms, hide after 150 ms | Sweeping across the taskbar starts nothing; the picture is usually ready when the card appears (same delay as the bar's tooltips); moving between buttons switches without flicker. One capture per window per `PREVIEW_REFRESH_MS` (3 s), also while the card stays up (a hidden app redraws after being captured, so the refresh catches up). |
+| Preview files: `$XDG_RUNTIME_DIR/taskbox-preview/<address>.png`, 0600 | Written to a temp name and renamed (no half-read PNGs); deleted when the window closes (`forgetClosed`) and the folder when Taskbox is disabled (cleanup script). `?rev` on the Image URL forces a reload (`cache: false`). |
+| `tooltipHovered` on buttons | Omarchy's bar (4.0.3rc4+) only shows/keeps a tooltip while the target reports `tooltipHovered === true`. |
+| Preview suppressed after a click until the pointer leaves | As on Windows; also stops a just-restored window's card reappearing (and `visibleNow` re-checks eligibility). |
 
 ## Omarchy internals relied on (re-check after Omarchy updates)
 
@@ -194,6 +201,12 @@ Not public API — if something breaks after `omarchy update`, check these first
 - `Ui/PopupCard.qml`: default property `contentItem` (Items only); `owner` for
   popout coordination and `close()`; uses only facade members of `bar`.
 - `Ui/BarWidget.qml`: `bar`, `settings`, `setting()`, `vertical`, `barSize`.
+- `plugins/bar/Bar.qml` tooltips: `showTooltip(target, text)` needs
+  `target.tooltipHovered === true`, re-checked every 100 ms.
+- `Color.tooltip.{background,text,border}` for the preview card.
+- Outside Omarchy's shell: `grim` ≥ 1.5 (`-T`, in `omarchy-base.packages`)
+  and Hyprland's `stableId` in `hyprctl clients -j` (the ext-foreign-toplevel
+  identifier grim expects).
 
 ## Upstream watch list (checked 2026-09-25)
 
@@ -257,6 +270,7 @@ tools/dev.sh test live --full   # also Hyprland reload, shell restart, disable/e
                                 # 20-window stress, left-bar layout (~1–2 min, bar blinks)
 tools/dev.sh test live --facade # everything behind an exact 4.0.4 plugin facade (combines with --full)
 tools/dev.sh test multimonitor  # on a virtual second monitor (add --facade too)
+tools/dev.sh test renderers     # hover previews under OpenGL, GLES, Vulkan, software, llvmpipe
 ```
 
 | Suite | Covers | Needs |
@@ -266,8 +280,9 @@ tools/dev.sh test multimonitor  # on a virtual second monitor (add --facade too)
 | `tests/lua/taskbox_spec.lua` | `hypr/taskbox.lua` against `mock_hl.lua`: install-once, never-remove, missing-window guard, config restore, send fit-in, arrival focus, origins, pruning, toggles | lua 5.4/5.5 |
 | `tests/api/facade.sh` | QML only uses members of Omarchy 4.0.4's plugin facade; `BarFacade.qml` matches the installed `PluginBarApi.qml` (4.0.4+) | — |
 | `tests/qml/lint.sh` | qmllint for syntax, imports, unresolved types, duplicate bindings, required props (style categories off) | Omarchy install, qt6 qmllint |
-| `tests/live/multimonitor.sh` | the plugin on a **virtual second monitor** (`hyprctl output create headless`): one instance per monitor, per-monitor windows/sizing/overflow, focus across monitors without warping, per-monitor hover/menus/settings, restore to the clicked monitor, workspace switches on the other monitor, windows moving between monitors, scales 1 / 1.25 / 1.5 / 2, unplug/replug | Omarchy desktop |
-| `tests/live/run.sh` | the running plugin end to end; fails on any QML error / binding loop logged during the run | Omarchy desktop |
+| `tests/live/multimonitor.sh` | the plugin on a **virtual second monitor** (`hyprctl output create headless`): one instance per monitor, per-monitor windows/sizing/overflow, focus across monitors without warping, per-monitor hover/menus/settings/previews, restore to the clicked monitor, workspace switches on the other monitor, windows moving between monitors, scales 1 / 1.25 / 1.5 / 2 (incl. preview pixel density), unplug/replug (with a preview open) | Omarchy desktop |
+| `tests/live/run.sh` | the running plugin end to end, incl. hover previews (delay, 3 s reuse/refresh, switching, menu hides it, icon fallback via `previewFailure`, modes, window closing deletes its picture); fails on any QML error / binding loop logged during the run | Omarchy desktop |
+| `tests/renderers/run.sh` | the preview's capture + display path in a separate Quickshell per Qt renderer (default, OpenGL ES, Vulkan, software, llvmpipe); every renderer must show the same picture | Omarchy desktop, qs |
 
 The Lua and qmllint suites were mutation-tested (deliberately broken code must
 fail them). When you add behaviour, add a test in the matching suite; when you
@@ -296,6 +311,8 @@ tools/dev.sh ipc icon <appId>   # how an icon resolves (web-app host, candidates
 tools/dev.sh ipc dropTargets    # per monitor: workspace targets drag-and-drop would hit
 tools/dev.sh ipc click <addr>   # left-click a window's button (restore / minimize / focus)
 tools/dev.sh ipc hover <addr>   # hover-highlight a window ("" clears)
+tools/dev.sh ipc preview <addr> # rest the pointer on its button: hover preview ("" hides)
+tools/dev.sh ipc previewFailure true|false  # tests: make captures fail (icon fallback)
 tools/dev.sh ipc menu <addr>    # open a window's menu
 tools/dev.sh ipc settings | colorPicker | overflow | closePopups
 ```
@@ -364,11 +381,12 @@ Quickshell types: `/usr/lib/qt6/qml/Quickshell/**/*.qmltypes`.
 1. Bump the version in `manifest.json`, `hypr/taskbox.lua` (`T.version`) and
    add a `CHANGELOG.md` entry (`tests/manifest.sh` checks all three agree).
 2. `tools/dev.sh test`, `tools/dev.sh test live --full`,
-   `tools/dev.sh test live --full --facade` and
-   `tools/dev.sh test multimonitor` (+ `--facade`) — all green.
+   `tools/dev.sh test live --full --facade`,
+   `tools/dev.sh test multimonitor` (+ `--facade`) and
+   `tools/dev.sh test renderers` — all green.
 3. Re-check the [upstream watch list](#upstream-watch-list-checked-2026-09-25)
    against the latest Omarchy / Hyprland / Quickshell.
 4. By hand (needs a real pointer): click / middle / right-click menu, ×,
-   Alt+×, hover highlight, drag to a workspace (then visit it), Alt+drag,
+   Alt+×, hover highlight and preview, drag to a workspace (then visit it), Alt+drag,
    minimize/restore, settings changes persist.
 5. Commit, tag `vX.Y.Z`, push. Users update with `omarchy plugin update`.

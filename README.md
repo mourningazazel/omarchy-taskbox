@@ -17,7 +17,8 @@ button, plus minimize, drag-to-workspace and a right-click window menu.
 - **Windows ordering.** Oldest window on the left, newest on the right; the
   taskbar hugs the right-hand widgets and grows toward the left.
 - **Close or force kill** from the `×` (hold **Alt** to force kill).
-- **Hover to find a window.** Its border lights up without stealing focus.
+- **Hover to find a window.** Its border lights up without stealing focus,
+  and a minimized window shows a small preview under its button.
 - **Drag to a workspace.** Drop a button on a workspace number to send the
   window there without following it.
 - **Minimize and restore**, with minimized windows kept (dimmed) on the
@@ -53,6 +54,7 @@ focuses and closes windows; the extras switch themselves off.
 | Click a minimized (dimmed) window | Restore it onto this workspace |
 | Middle-click | Close the window |
 | Hover | Light up that window's border, without focusing it |
+| Rest on a minimized window | A thumbnail of it appears under the button |
 | `×` | Close the window (the app may ask to save) |
 | **Alt** + `×` | Force kill the app (the `×` turns red while Alt is held) |
 | Right-click | Window menu: minimize/restore, maximize, float/tile, move to workspace, close, force kill, settings |
@@ -71,6 +73,16 @@ a hyprbars "minimize" button typically uses. Windows minimized by other tools
 show up dimmed and restorable too (`minimized`: hyprbars, omadock;
 `omarchy-minimized`: window-shelf, qol-desktop-plus). Taskbox remembers the
 workspace each one came from on the window itself, so it survives restarts.
+
+**Hover previews** are small pictures (200 px wide, at most 120 px tall)
+taken by `grim` (part of Omarchy's base install) when the pointer rests on a
+button, at most once every 3 seconds per window. Only minimized windows get
+one by default (`preview`: `minimized`, `all` or `off`). Because the capture
+runs as its own small process and the compositor does the copying, previews
+don't depend on your GPU or drivers. The pictures live in memory under
+`$XDG_RUNTIME_DIR/taskbox-preview` (only you can read them) and are deleted
+when their window closes. An app that hasn't drawn since it was hidden may
+show its last frame until the next refresh.
 
 **Force kill** sends SIGKILL to the app's process, which closes all of that
 app's windows without asking to save. Whether a click on `×` force-kills is
@@ -127,6 +139,7 @@ also be changed with `omarchy bar set mourningazazel.taskbox <key> <value> --jso
 | `showMinimized` | `true` | Keep minimized windows on the taskbar (dimmed) |
 | `minimizeWorkspace` | `"minimized"` | Special workspace minimized windows are parked on |
 | `highlightColor` | `""` | Custom button highlight, `#rrggbb` (empty = the theme's default). Set it in the settings popup with the colour picker, which also suggests five colours that complement your theme's accent |
+| `preview` | `"minimized"` | Hover thumbnail of a window: `minimized` (minimized windows), `all` or `off` |
 
 ## Compatibility
 
@@ -170,6 +183,10 @@ Works alongside (checked against their source):
   `omarchy restart shell`.
 - **Alt+× closes normally instead of force-killing:** check the binds with
   `hyprctl binds | grep -A3 Alt_L`; if they're missing, `omarchy restart shell`.
+- **A preview shows only the app icon:** the capture failed. Check `grim -h`
+  lists `-T` (grim 1.5+) and that `hyprctl clients -j` shows a `stableId`
+  (recent Hyprland); `journalctl --user -b | grep "preview capture"` shows
+  the exit code (3 = window not found, 4 = grim failed).
 - **Wrong or generic icon for an app:** run
   `omarchy-shell mourningazazel.taskbox icon <app id>` (the app id is in
   `omarchy-shell mourningazazel.taskbox state`) and include the output in an

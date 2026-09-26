@@ -19,7 +19,7 @@ describe("settings", () => {
     same(L.normalizeSettings({}), {
       maxWidth: 200, minWidth: 44, showTitle: true, closeButton: "hover",
       middleClickClose: true, clickToMinimize: true, showMinimized: true, minimizeWorkspace: "minimized",
-      highlightColor: "",
+      highlightColor: "", preview: "minimized",
     })
     same(L.normalizeSettings(undefined), JSON.parse(JSON.stringify(L.normalizeSettings({}))))
   })
@@ -430,5 +430,128 @@ describe("commands", () => {
     assert.match(L.saveSettingCommand("id", "maxWidth", 220), /'maxWidth' '220' --json/)
     assert.match(L.saveSettingCommand("id", "showTitle", false), /'showTitle' 'false' --json/)
     assert.doesNotMatch(L.saveSettingCommand("id", "closeButton", "always"), /--json/)
+  })
+})
+
+describe("hover previews", () => {
+  test("preview setting: known modes, anything else → minimized", () => {
+    for (const mode of ["minimized", "all", "off"]) assert.equal(L.normalizeSettings({ preview: mode }).preview, mode)
+    for (const junk of ["", "ALL", "yes", 1, null, true]) assert.equal(L.normalizeSettings({ preview: junk }).preview, "minimized")
+  })
+
+  test("which windows get one", () => {
+    assert.equal(L.previewEligible("minimized", true), true)
+    assert.equal(L.previewEligible("minimized", false), false)
+    assert.equal(L.previewEligible("all", false), true)
+    assert.equal(L.previewEligible("all", true), true)
+    assert.equal(L.previewEligible("off", true), false)
+  })
+
+  test("thumbnail keeps the window's shape inside 200 x 120", () => {
+    const W = L.PREVIEW_WIDTH, H = L.PREVIEW_MAX_HEIGHT
+    assert.equal(W, 200)
+    assert.equal(H, 120)
+    same(L.previewSize(1920, 1080, W, H), { width: 200, height: 113 })   // 16:9: full width
+    same(L.previewSize(5120, 1440, W, H), { width: 200, height: 56 })    // ultrawide
+    same(L.previewSize(400, 1600, W, H), { width: 30, height: 120 })     // narrow and tall: capped height
+    same(L.previewSize(1, 100000, W, H), { width: 1, height: 120 })      // never zero-sized
+    same(L.previewSize(100, 50, W, H), { width: 200, height: 100 })      // small windows scale up
+  })
+
+  test("unknown sizes get a 16:10 box", () => {
+    for (const [w, h] of [[0, 0], [undefined, undefined], [NaN, 5], [-3, 10], ["x", "y"], [Infinity, 1]])
+      same(L.previewSize(w, h, 200, 120), { width: 192, height: 120 })
+  })
+
+  test("a window is captured at most once per 3 s", () => {
+    assert.equal(L.PREVIEW_REFRESH_MS, 3000)
+    assert.equal(L.previewStale(undefined, 10000), true)
+    assert.equal(L.previewStale(null, 10000), true)
+    assert.equal(L.previewStale({ time: 9000 }, 10000), false)
+    assert.equal(L.previewStale({ time: 7001 }, 10000), false)
+    assert.equal(L.previewStale({ time: 7000 }, 10000), true)
+    assert.equal(L.previewStale({ time: 9000 }, 10000, 500), true)
+    assert.equal(L.previewStale({ time: NaN }, 10000), true)
+  })
+
+  test("capture argv: fixed script, values as positional parameters", () => {
+    const argv = L.previewCaptureArgs("AAAB7D0", "/run/user/1/taskbox-preview/aaab7d0.png", 400.4, 239.6)
+    same(argv.slice(0, 2), ["sh", "-c"])
+    assert.equal(argv[2], L.PREVIEW_CAPTURE_SCRIPT)
+    same(argv.slice(3), ["taskbox-preview", "0xaaab7d0", "/run/user/1/taskbox-preview/aaab7d0.png", "400", "240"])
+    assert.throws(() => L.previewCaptureArgs("0x12; rm -rf ~", "/tmp/x.png", 1, 1), /bad window address/)
+    assert.throws(() => L.previewCaptureArgs("0x12", "relative.png", 1, 1), /absolute/)
+    same(L.previewCaptureArgs("0x1", "/x.png", 0, -5).slice(-2), ["1", "1"])
+    bash("sh -n -c " + L.shellQuote(L.PREVIEW_CAPTURE_SCRIPT))
+    assert.equal(L.previewFile("/run/user/1/taskbox-preview", "0xAB"), "/run/user/1/taskbox-preview/ab.png")
+  })
+
+  // Run the real capture script against stub hyprctl / grim.
+  function runCapture({ clients, monitors = "[]", grimStatus = 0, box = [400, 240], address = "0xabc" }) {
+    const dir = mkdtempSync(join(tmpdir(), "taskbox-preview-"))
+    const stub = (name, body) => { writeFileSync(join(dir, name), "#!/bin/sh\n" + body + "\n"); chmodSync(join(dir, name), 0o755) }
+    writeFileSync(join(dir, "clients.json"), clients)
+    writeFileSync(join(dir, "monitors.json"), monitors)
+    stub("hyprctl", `case "$2" in clients) cat "${dir}/clients.json" ;; monitors) cat "${dir}/monitors.json" ;; esac`)
+    // Records its arguments; writes a fake PNG to the path it's given.
+    stub("grim", `echo "$@" > "${dir}/grim.args"; [ ${grimStatus} -eq 0 ] || exit ${grimStatus}; for last; do :; done; printf png > "$last"`)
+    const out = join(dir, "previews", "abc.png")
+    const argv = L.previewCaptureArgs(address, out, box[0], box[1])
+    let status = 0
+    try {
+      execFileSync(argv[0], argv.slice(1), { env: { ...process.env, PATH: dir + ":" + process.env.PATH } })
+    } catch (e) { status = e.status }
+    const result = {
+      status,
+      grim: existsSync(join(dir, "grim.args")) ? bash(`cat "${dir}/grim.args"`).trim().split(" ") : null,
+      written: existsSync(out),
+      leftovers: bash(`ls -A "${dir}/previews" 2>/dev/null || true`).trim().split("\n").filter(f => f && f !== "abc.png"),
+    }
+    rmSync(dir, { recursive: true })
+    return result
+  }
+
+  const client = (extra) => JSON.stringify([
+    { address: "0x999", stableId: "1", size: [10, 10], monitor: 0 },
+    { address: "0xabc", stableId: "18000042", size: [1000, 500], monitor: 1, ...extra },
+  ])
+
+  test("capture: finds the window's stableId and a scale that fits the box", () => {
+    const r = runCapture({ clients: client(), monitors: JSON.stringify([{ id: 0, scale: 1 }, { id: 1, scale: 2 }]) })
+    assert.equal(r.status, 0)
+    assert.equal(r.grim[0], "-T")
+    assert.equal(r.grim[1], "18000042")
+    assert.equal(r.grim[2], "-s")
+    // buffer 2000x1000 (logical x monitor scale 2) into 400x240 → 0.2
+    assert.equal(Number(r.grim[3]), 0.2)
+    assert.equal(r.written, true)
+    same(r.leftovers, [])
+  })
+
+  test("capture: never scales up; unknown monitor counts as scale 1", () => {
+    const r = runCapture({ clients: client({ size: [100, 50], monitor: 7 }) })
+    assert.equal(Number(r.grim[3]), 1)
+    const tall = runCapture({ clients: client({ size: [300, 1200], monitor: -1 }) })
+    assert.equal(Number(tall.grim[3]), 0.2)   // 240 / 1200
+  })
+
+  test("capture: window gone or no stableId (older Hyprland) → exit 3, grim not run", () => {
+    for (const clients of [client({ address: "0xdef" }), client({ stableId: null }), client({ stableId: "" }), "[]", "garbage"]) {
+      const r = runCapture({ clients })
+      assert.equal(r.status, 3, clients)
+      assert.equal(r.grim, null)
+      assert.equal(r.written, false)
+    }
+  })
+
+  test("capture: grim failing (missing, old, capture refused) → exit 4, no partial file", () => {
+    const r = runCapture({ clients: client(), grimStatus: 1 })
+    assert.equal(r.status, 4)
+    assert.equal(r.written, false)
+    same(r.leftovers, [])
+  })
+
+  test("cleanup script also removes the preview pictures when Taskbox is disabled", () => {
+    assert.match(L.cleanupScript("x"), /rm -rf "\$\{XDG_RUNTIME_DIR:-\/tmp\}\/taskbox-preview"; hyprctl reload/)
   })
 })

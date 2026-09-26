@@ -110,10 +110,12 @@ START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 ORIG_POS=$(jq -r '.bar.position // "top"' "$SHELL_JSON")
 ORIG_ENTRY=$(jq -c --arg id "$ID" '[.bar.layout[]?[]? | select(.id == $id)][0] // empty' "$SHELL_JSON")
 [[ -n $ORIG_ENTRY ]] || { echo "$ID is not on the bar; enable it first"; exit 2; }
-TOUCHED=(maxWidth minWidth showTitle emulateFacade highlightColor)
+TOUCHED=(maxWidth minWidth showTitle emulateFacade highlightColor preview)
 
 cleanup() {
   ipc hover "" >/dev/null 2>&1
+  ipc preview "" >/dev/null 2>&1
+  ipc previewFailure false >/dev/null 2>&1
   ipc closePopups >/dev/null 2>&1
   close_probes
   pkill -f -- "--user-data-dir=$TMP/chrome" 2>/dev/null
@@ -229,6 +231,63 @@ check "moving to another button moves the tag" wait_for 3 '[[ $(client "${P[0]}"
 ipc hover "" >/dev/null
 check "clearing removes it" wait_for 3 '[[ $(client "${P[1]}" | jq "[.tags[] | select(. == \"taskbox-hover\")] | length") -eq 0 ]]'
 
+section "hover preview"
+PREVIEWS=${XDG_RUNTIME_DIR:-/tmp}/taskbox-preview
+pv() { here | jq -c .preview; }
+pfile() { echo "$PREVIEWS/$(sed 's/^0x//' <<<"$1").png"; }
+omarchy bar set "$ID" preview minimized >/dev/null
+wait_for 5 '[[ $(pv | jq -r .mode) == minimized ]]'
+C0=$(pv | jq .captures)   # the counter lives as long as the shell does
+check "a minimized window gets a preview" test "$(ipc preview "${P[0]}")" = ok
+check "…shown after the hover delay, with a picture" wait_for 3 '[[ $(pv | jq ".shown and .image and .last.ok") == true ]]'
+check "…taken once, in well under a second ($(pv | jq .last.ms) ms)" test "$(pv | jq --argjson c "$C0" '.captures == $c + 1 and .last.ms < 1000')" = true
+check "…at most 200 px wide and 120 px of picture" test "$(pv | jq '.size[0] >= 200 and .size[0] <= 240 and .size[1] <= 120 + 60')" = true
+check "…stored privately in the runtime dir" test "$(stat -c %a "$(pfile "${P[0]}")" 2>&1)|$(stat -c %a "$PREVIEWS")" = "600|700"
+PNG=$(file -b "$(pfile "${P[0]}")")
+check "…as a small PNG ($(grep -oE '[0-9]+ x [0-9]+' <<<"$PNG"))" bash -c '[[ "$1" =~ ([0-9]+)\ x\ ([0-9]+) ]] && (( BASH_REMATCH[1] <= 2 * 200 + 1 && BASH_REMATCH[2] <= 2 * 120 + 1 ))' _ "$PNG"
+ipc preview "" >/dev/null
+check "hiding it" wait_for 2 '[[ $(pv | jq .shown) == false ]]'
+ipc preview "${P[0]}" >/dev/null; sleep 0.8
+check "hovering again within 3 s reuses the picture" test "$(pv | jq --argjson c "$C0" '.shown and .captures == $c + 1')" = true
+ipc preview "${P[1]}" >/dev/null
+check "moving to another minimized window switches at once" wait_for 2 '[[ $(pv | jq -r .target) == ${P[1]} && $(pv | jq ".shown and .image") == true ]]'
+check "…capturing that one" test "$(pv | jq .captures)" -eq $((C0 + 2))
+sleep 3.2   # (the card on P1 refreshes once meanwhile)
+N=$(pv | jq .captures); ipc preview "${P[0]}" >/dev/null
+check "after 3 s the next hover takes a fresh one" wait_for 3 '[[ $(pv | jq ".shown and .captures == $((N + 1))") == true ]]'
+N=$(pv | jq .captures)
+check "while it stays up, it refreshes every 3 s" wait_for 5 '[[ $(pv | jq .captures) -eq $((N + 1)) ]]'
+check "…not sooner" test "$(pv | jq '.last.ageMs')" -lt 3000
+ipc menu "${P[0]}" >/dev/null
+check "a menu opening hides it" wait_for 2 '[[ $(pv | jq .shown) == false ]]'
+ipc closePopups >/dev/null
+ACTIVE=$(here | jq -r '[.windows[] | select(.minimized | not)][0].address // empty')
+if [[ -n $ACTIVE ]]; then
+  check "a window that isn't minimized gets the usual tooltip instead" test "$(ipc preview "$ACTIVE")" = "no preview for this window"
+else
+  skip "a window that isn't minimized gets the usual tooltip instead" "no regular window on this workspace"
+fi
+ipc previewFailure true >/dev/null
+sleep 3.2; ipc preview "${P[0]}" >/dev/null
+check "a failed capture still shows the card (with the app icon)" wait_for 3 '[[ $(pv | jq ".shown and (.image | not) and .last.ok == false") == true ]]'
+ipc previewFailure false >/dev/null
+ipc preview "" >/dev/null
+omarchy bar set "$ID" preview off >/dev/null
+check "preview off: none" wait_for 5 '[[ $(ipc preview "${P[0]}") == "no preview for this window" ]]'
+omarchy bar set "$ID" preview all >/dev/null
+check "preview all: minimized windows still get one" wait_for 5 '[[ $(ipc preview "${P[1]}") == ok ]]'
+ipc preview "" >/dev/null
+omarchy bar set "$ID" preview minimized >/dev/null
+spawn_probes 1
+C=$(comm -13 <(printf '%s\n' "${P[@]}" | sort) <(probes | sort) | head -1)
+park "$C"
+wait_for 5 '[[ $(here | jq --arg a "$C" "any(.windows[]; .address == \$a)") == true ]]'
+ipc preview "$C" >/dev/null
+wait_for 3 '[[ $(pv | jq ".shown and .image") == true ]]'
+lua "hl.dsp.window.close({ window = \"address:$C\" })"
+check "its window closing hides the preview" wait_for 5 '[[ $(pv | jq .shown) == false ]]'
+check "…and deletes its picture" wait_for 3 '[[ ! -e $(pfile "$C") ]]'
+
 section "Alt lifts the drag guard (Alt+drag moves the taskbar)"
 ipc hover "${P[1]}" >/dev/null
 check "hovering a button blocks the bar's reorder drag" wait_for 3 '[[ $(here | jq .reorderGuard) == true && $(here | jq .reorderAreaEnabled) == false ]]'
@@ -326,6 +385,12 @@ if ((FULL)); then
   S=$(here)
   check "…square icon buttons" test "$(jq '.buttonExtent == .barSize' <<<"$S")" = true
   check "…all windows listed" test "$(jq '.windows | length' <<<"$S")" -eq $((BASE + 2))
+  VP=$(probes | head -1)
+  ipc preview "$VP" >/dev/null
+  check "…hover previews still open (beside the bar)" wait_for 3 '[[ $(here | jq ".preview.shown and .preview.image") == true ]]'
+  # TASKBOX_SHOTS=<dir>: keep a picture of the bar's left edge with the preview.
+  [[ -n ${TASKBOX_SHOTS:-} ]] && grim -g "0,0 480x360" "$TASKBOX_SHOTS/vertical-preview.png"
+  ipc preview "" >/dev/null
   check "…drop targets still found" test "$(ipc dropTargets | jq length)" -ge 1
   omarchy bar position "$ORIG_POS" >/dev/null
   check "back to the $ORIG_POS bar" wait_for 8 '[[ $(here | jq .vertical) == false ]]'
@@ -337,6 +402,7 @@ if ((FULL)); then
   check "…with exactly 4 Alt binds" wait_for 5 '[[ $(hyprctl binds -j | jq "[.[] | select(.key | test(\"^Alt_[LR]$\"))] | length") -eq 4 ]]'
 
   SOCK="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+  sleep 1   # let the reload above finish, so its own event isn't counted below
   timeout 12 socat -u UNIX-CONNECT:"$SOCK" - >"$TMP/events" 2>/dev/null &
   omarchy restart shell >/dev/null 2>&1
   check "shell restart: comes back" wait_for 10 'state >/dev/null 2>&1 && [[ $(here | jq .integrated) == true ]]'

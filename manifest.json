@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "mourningazazel.taskbox",
   "name": "Taskbox",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "author": "mourningazazel",
   "description": "Windows-style taskbar: a button per window on the current workspace, with close/force-kill, minimize, drag-to-workspace and a window menu",
   "homepage": "https://github.com/mourningazazel/omarchy-taskbox",
@@ -28,7 +28,8 @@
       "clickToMinimize": true,
       "showMinimized": true,
       "minimizeWorkspace": "minimized",
-      "highlightColor": ""
+      "highlightColor": "",
+      "preview": "minimized"
     },
     "schema": [
       {
@@ -93,6 +94,26 @@
         "type": "string",
         "label": "Custom highlight color",
         "description": "Hex colour (#rrggbb) tinting the button background; empty = the theme's default"
+      },
+      {
+        "key": "preview",
+        "type": "select",
+        "label": "Hover previews",
+        "description": "Thumbnail of a window while hovering its button",
+        "options": [
+          {
+            "value": "minimized",
+            "label": "Minimized windows"
+          },
+          {
+            "value": "all",
+            "label": "All windows"
+          },
+          {
+            "value": "off",
+            "label": "Off"
+          }
+        ]
       }
     ]
   }
