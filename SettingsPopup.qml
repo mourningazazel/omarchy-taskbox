@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Ui
+import "lib/Logic.js" as Logic
 
 // Taskbox settings, built from the shell's own controls. Opened from a
 // button's right-click menu, by right-clicking "+N", or with
@@ -21,6 +22,15 @@ PopupCard {
 
   // Number fields fire on every step; write once the value settles.
   property var pending: ({})
+  // Highlight colour: preview on the taskbar at once, write once it settles.
+  function setHighlight(hex) {
+    taskbar.previewHighlight = hex
+    if (hexField.text !== hex && !hexField.activeFocus) hexField.text = hex
+    saveNumber("highlightColor", hex)
+  }
+
+  onOpenChanged: if (open) hexField.text = taskbar.effectiveHighlight
+
   function saveNumber(key, value) {
     var next = {}
     for (var k in pending) next[k] = pending[k]
@@ -150,6 +160,75 @@ PopupCard {
       label: "Show minimized windows"
       checked: popup.taskbar.showMinimized
       onToggled: popup.taskbar.saveSetting("showMinimized", !popup.taskbar.showMinimized)
+    }
+
+    // Custom highlight colour: hex entry + a button opening the colour picker.
+    Item {
+      width: column.width
+      height: Style.space(34)
+      Label { text: "Custom highlight color"; anchors.left: parent.left }
+
+      Row {
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: Style.space(6)
+
+        TextField {
+          id: hexField
+          width: Style.space(100)
+          placeholderText: "theme"
+          foreground: popup.fg
+          accent: popup.taskbar.accent
+          font.family: popup.fontFamily
+          font.pixelSize: Style.font.bodySmall
+          validator: RegularExpressionValidator { regularExpression: /#?[0-9a-fA-F]{0,6}/ }
+          readonly property bool bad: text !== "" && Logic.parseHexColor(text) === ""
+          color: bad ? popup.taskbar.urgentColor : popup.fg
+          onTextEdited: {
+            var hex = Logic.parseHexColor(text)
+            if (hex !== "" || text === "") popup.setHighlight(hex)
+          }
+          onEditingFinished: if (bad) text = popup.taskbar.effectiveHighlight
+          Keys.onEscapePressed: focus = false
+        }
+
+        // Opens the colour picker card below.
+        Rectangle {
+          id: wheelButton
+          width: Style.space(30)
+          height: Style.space(30)
+          anchors.verticalCenter: parent.verticalCenter
+          radius: Style.cornerRadius
+          color: popup.taskbar.pickerOpen || wheelMouse.containsMouse ? Util.alpha(popup.fg, 0.14) : Util.alpha(popup.fg, 0.05)
+          border.width: 1
+          border.color: Util.alpha(popup.fg, 0.25)
+          Text {
+            anchors.centerIn: parent
+            text: "\uDB80\uDFD8" // nf-md-palette
+            color: popup.taskbar.effectiveHighlight !== "" ? popup.taskbar.effectiveHighlight : popup.fg
+            font.family: popup.fontFamily
+            font.pixelSize: Style.font.body + 2
+          }
+          MouseArea {
+            id: wheelMouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: popup.taskbar.pickerOpen = !popup.taskbar.pickerOpen
+          }
+        }
+      }
+    }
+
+    ColorPicker {
+      visible: popup.taskbar.pickerOpen
+      width: column.width
+      height: visible ? implicitHeight : 0
+      taskbar: popup.taskbar
+      value: popup.taskbar.effectiveHighlight
+      suggestions: popup.taskbar.highlightSuggestions
+      pointerX: column.width - Style.space(15)
+      onPicked: function(hex) { popup.setHighlight(hex) }
     }
 
     Rectangle { width: column.width; height: 1; color: Util.alpha(popup.fg, 0.12) }

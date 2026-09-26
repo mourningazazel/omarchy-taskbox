@@ -19,6 +19,7 @@ describe("settings", () => {
     same(L.normalizeSettings({}), {
       maxWidth: 200, minWidth: 44, showTitle: true, closeButton: "hover",
       middleClickClose: true, clickToMinimize: true, showMinimized: true, minimizeWorkspace: "minimized",
+      highlightColor: "",
     })
     same(L.normalizeSettings(undefined), JSON.parse(JSON.stringify(L.normalizeSettings({}))))
   })
@@ -51,6 +52,67 @@ describe("settings", () => {
     assert.equal(L.normalizeSettings({ minimizeWorkspace: "special:parked" }).minimizeWorkspace, "parked")
     for (const bad of ["a\"); os.exit()--", "has space", "", "x".repeat(65), "new\nline"])
       assert.equal(L.normalizeSettings({ minimizeWorkspace: bad }).minimizeWorkspace, "minimized", bad)
+  })
+})
+
+describe("highlight colour", () => {
+  test("parseHexColor accepts #rgb / #rrggbb in any case, rejects the rest", () => {
+    assert.equal(L.parseHexColor("#AbC"), "#aabbcc")
+    assert.equal(L.parseHexColor(" d97B3f "), "#d97b3f")
+    assert.equal(L.parseHexColor("#d97b3f"), "#d97b3f")
+    for (const bad of ["", null, undefined, "#12", "#12345", "#1234567", "#ff8800cc", "red", "#ggg", "rgb(1,2,3)"])
+      assert.equal(L.parseHexColor(bad), "", String(bad))
+  })
+
+  test("settings: highlightColor normalised, garbage falls back to the theme", () => {
+    assert.equal(L.normalizeSettings({}).highlightColor, "")
+    assert.equal(L.normalizeSettings({ highlightColor: "#ABC" }).highlightColor, "#aabbcc")
+    assert.equal(L.normalizeSettings({ highlightColor: "nope" }).highlightColor, "")
+  })
+
+  test("rgb <-> hex <-> hsl/hsv round-trip", () => {
+    for (const hex of ["#000000", "#ffffff", "#d97b3f", "#dcd7ba", "#123456", "#7f7f7f", "#00ff00"]) {
+      const rgb = L.hexToRgb(hex)
+      const hsl = L.rgbToHsl(rgb)
+      const back = L.hslToRgb(hsl.h, hsl.s, hsl.l)
+      assert.equal(L.rgbToHex(back.r, back.g, back.b), hex, "hsl " + hex)
+      const hsv = L.rgbToHsv(rgb)
+      assert.equal(L.hsvToHex(hsv.h, hsv.s, hsv.v), hex, "hsv " + hex)
+    }
+    assert.equal(L.hsvToHex(0, 1, 1), "#ff0000")
+    assert.equal(L.hsvToHex(120, 1, 1), "#00ff00")
+    assert.equal(L.hsvToHex(240, 1, 0.5), "#000080")
+    assert.equal(L.hsvToHex(10, 0, 1), "#ffffff")
+    assert.equal(L.rgbToHex(-5, 300, 127.6), "#00ff80")
+  })
+
+  const hueDistance = (a, b) => { const d = Math.abs(a - b) % 360; return Math.min(d, 360 - d) }
+
+  test("suggestions: five distinct harmonies of the accent", () => {
+    const accent = "#d97b3f"
+    const out = L.highlightSuggestions(accent, "#dcd7ba")
+    assert.equal(out.length, 5)
+    assert.equal(new Set(out).size, 5)
+    for (const hex of out) assert.equal(L.parseHexColor(hex), hex)
+    const h = L.rgbToHsl(L.hexToRgb(accent)).h
+    const hues = out.map((x) => L.rgbToHsl(L.hexToRgb(x)).h)
+    assert.ok(hueDistance(hues[0], h) > 175, "first is the complement")
+    for (const [i, off] of [[1, 150], [2, 150], [3, 120], [4, 120]])
+      assert.ok(Math.abs(hueDistance(hues[i], h) - off) < 3, `suggestion ${i} at ${off}°`)
+  })
+
+  test("suggestions: same lightness as the current highlight tint", () => {
+    for (const base of ["#dcd7ba", "#cacccc", "#4c4f69"]) {   // light and dark theme foregrounds
+      const want = Math.max(0.35, Math.min(0.85, L.rgbToHsl(L.hexToRgb(base)).l))
+      for (const hex of L.highlightSuggestions("#89b4fa", base))
+        assert.ok(Math.abs(L.rgbToHsl(L.hexToRgb(hex)).l - want) < 0.01, `${hex} vs ${base}`)
+    }
+  })
+
+  test("suggestions: a grey accent still yields colours; bad input still yields five", () => {
+    const grey = L.highlightSuggestions("#808080", "#cacccc")
+    for (const hex of grey) assert.ok(L.rgbToHsl(L.hexToRgb(hex)).s > 0.3, hex)
+    assert.equal(L.highlightSuggestions("garbage", "").length, 5)
   })
 })
 

@@ -31,6 +31,7 @@ list/focus/close only (`integrated` stays false).
 | `lib/Logic.js` | Pure logic (`.pragma library`): settings, quoting, events, ordering, minimized filtering, layout, click/menu rules, icon candidates, shell commands. **Unit-tested.** |
 | `TaskButton.qml` | One button (horizontal: icon + title + ×; vertical: icon only). Mouse: click, middle, right, drag, Alt+drag. |
 | `TaskMenu.qml` | Right-click window menu (`PopupCard`). |
+| `ColorPicker.qml` | Colour popover for the custom highlight (wheel, brightness, 5 suggestions), shown as a card inside the settings popup. |
 | `SettingsPopup.qml` | Settings popup (`PopupCard`) from `qs.Ui` controls; writes via `saveSetting()`. |
 | `hypr/taskbox.lua` | Hyprland side: Alt binds, hover rule, hooks, and the `Taskbox.*` actions. **Tested against a mock `hl`.** |
 | `tests/` | See [Testing](#testing). |
@@ -165,6 +166,8 @@ keybinds) are caught. The widget also learns origins live and merges the
 | `_state`, `_icons` mutated in place + `_stateRev` / `_iconRev` | Bindings may record into these without reassigning a property (which would re-trigger the binding: a *binding loop*). Revisions are bumped only from outside bindings, to invalidate. |
 | `recompute()` uses slot `region` + a 750 ms timer | Neighbours (clock, weather) resize silently; live positions lag during relayout, and our own size must not feed back into the budget. |
 | Web-app icons by URL host | Omarchy web apps have no `StartupWMClass`; Chromium classes them `chrome-<host>__<path>-<profile>`, matched to the desktop entry whose Exec URL has that host. |
+| Colour picker is a card inside the settings popup | A second `PopupCard` from inside the settings popup starts its own Hyprland focus grab, which cancels the settings popup's grab and closes it. |
+| `previewHighlight` | A picked/typed colour shows on the buttons immediately; the `omarchy bar set` write is debounced, and the preview is dropped once the setting matches. |
 | `checkCompat()` 6 s after start | Lists features whose Omarchy prerequisites are missing (`unavailable`), logs `[taskbox] unavailable here: …` once, and shows it in the settings popup. |
 | Button `Component.onDestruction` | A window can close under the pointer or mid-drag: hide tooltips, drop hover, cancel the drag. |
 
@@ -290,7 +293,7 @@ tools/dev.sh ipc dropTargets    # per monitor: workspace targets drag-and-drop w
 tools/dev.sh ipc click <addr>   # left-click a window's button (restore / minimize / focus)
 tools/dev.sh ipc hover <addr>   # hover-highlight a window ("" clears)
 tools/dev.sh ipc menu <addr>    # open a window's menu
-tools/dev.sh ipc settings | overflow | closePopups
+tools/dev.sh ipc settings | colorPicker | overflow | closePopups
 ```
 (`tools/dev.sh ipc …` = `omarchy-shell mourningazazel.taskbox …`.)
 

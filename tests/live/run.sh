@@ -110,7 +110,7 @@ START_TIME=$(date '+%Y-%m-%d %H:%M:%S')
 ORIG_POS=$(jq -r '.bar.position // "top"' "$SHELL_JSON")
 ORIG_ENTRY=$(jq -c --arg id "$ID" '[.bar.layout[]?[]? | select(.id == $id)][0] // empty' "$SHELL_JSON")
 [[ -n $ORIG_ENTRY ]] || { echo "$ID is not on the bar; enable it first"; exit 2; }
-TOUCHED=(maxWidth minWidth showTitle emulateFacade)
+TOUCHED=(maxWidth minWidth showTitle emulateFacade highlightColor)
 
 cleanup() {
   ipc hover "" >/dev/null 2>&1
@@ -128,7 +128,8 @@ cleanup() {
     local value
     value=$(jq -c --arg k "$key" '.[$k] // empty' <<<"$ORIG_ENTRY")
     [[ -z $value ]] && value=$(jq -c --arg k "$key" '.barWidget.defaults[$k] // false' "$ROOT/manifest.json")
-    omarchy bar set "$ID" "$key" "$(jq -r . <<<"$value")" --json >/dev/null 2>&1
+    if [[ $value == \"* ]]; then omarchy bar set "$ID" "$key" "$(jq -r . <<<"$value")" >/dev/null 2>&1
+    else omarchy bar set "$ID" "$key" "$(jq -r . <<<"$value")" --json >/dev/null 2>&1; fi
   done
   [[ $(jq -r '.bar.position // "top"' "$SHELL_JSON") == "$ORIG_POS" ]] || omarchy bar position "$ORIG_POS" >/dev/null 2>&1
   [[ $(hyprctl activeworkspace -j | jq .id) == "$START_WS" ]] || lua "hl.dsp.focus({ workspace = \"$START_WS\" })"
@@ -194,6 +195,17 @@ omarchy bar set "$ID" maxWidth 5 --json >/dev/null
 check "out-of-range values are clamped" wait_for 5 '[[ $(here | jq .settings.maxWidth) -eq 24 ]]'
 omarchy bar set "$ID" maxWidth "$(jq -r '.maxWidth // 200' <<<"$ORIG_ENTRY")" --json >/dev/null
 omarchy bar set "$ID" showTitle "$(jq -r '.showTitle // true' <<<"$ORIG_ENTRY")" --json >/dev/null
+omarchy bar set "$ID" highlightColor '#D97B3F' >/dev/null
+check "a custom highlight colour reaches the taskbar" wait_for 5 '[[ $(here | jq -r .highlight) == "#d97b3f" ]]'
+omarchy bar set "$ID" highlightColor '#abc' >/dev/null
+check "…short hex is expanded" wait_for 5 '[[ $(here | jq -r .highlight) == "#aabbcc" ]]'
+omarchy bar set "$ID" highlightColor 'not-a-colour' >/dev/null
+check "…garbage falls back to the theme" wait_for 5 '[[ $(here | jq -r .highlight) == "" ]]'
+omarchy bar set "$ID" highlightColor "$(jq -r '.highlightColor // ""' <<<"$ORIG_ENTRY")" >/dev/null
+check "five suggested highlight colours, all valid hex" test "$(here | jq '[.highlightSuggestions[] | select(test("^#[0-9a-f]{6}$"))] | length')" -eq 5
+check "the colour picker opens inside the settings popup" test "$(ipc colorPicker)|$(here | jq .pickerOpen)" = "settings|true"
+ipc closePopups >/dev/null
+check "…and resets when the popup closes" wait_for 3 '[[ $(here | jq .pickerOpen) == false ]]'
 check "settings popup opens" test "$(ipc settings)" = settings
 ipc closePopups >/dev/null
 check "popups close" wait_for 3 '[[ $(here | jq -r .popup) == "" ]]'

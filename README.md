@@ -125,6 +125,7 @@ also be changed with `omarchy bar set mourningazazel.taskbox <key> <value> --jso
 | `clickToMinimize` | `true` | Clicking the focused window minimizes it |
 | `showMinimized` | `true` | Keep minimized windows on the taskbar (dimmed) |
 | `minimizeWorkspace` | `"minimized"` | Special workspace minimized windows are parked on |
+| `highlightColor` | `""` | Custom button highlight, `#rrggbb` (empty = the theme's default). Set it in the settings popup with the colour picker, which also suggests five colours that complement your theme's accent |
 
 ## Compatibility
 

@@ -61,7 +61,8 @@ Item {
     color: {
       var a = button.active ? 0.16 : (button.minimized ? 0.02 : 0.06)
       if (button.hovered) a += 0.08
-      return Util.alpha(taskbar.fg, a)
+      // The theme's foreground, or the custom highlight colour.
+      return Util.alpha(taskbar.highlightBase, a)
     }
 
     Behavior on color { ColorAnimation { duration: 120 } }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 — 2026-09-26
+
+- Custom highlight colour for the buttons (settings → *Custom highlight
+  color*): a hex field plus a colour picker — hue/saturation wheel,
+  brightness, and five suggestions that complement the theme accent at the
+  lightness of the default highlight. Empty = the theme's default.
+- Icon-only buttons are compact when titles are off (thanks @seth-reee).
+
 ## 1.0.0 — 2026-09-25
 
 First public release of Taskbox.

@@ -41,6 +41,19 @@ BarWidget {
   readonly property bool showMinimized: config.showMinimized
   readonly property string minimizeWorkspace: config.minimizeWorkspace
 
+  // Custom highlight: the tint behind buttons (TaskButton keeps its usual
+  // transparency levels). previewHighlight shows a choice instantly while the
+  // settings write is in flight; it's dropped once the setting catches up.
+  property var previewHighlight: undefined
+  readonly property string effectiveHighlight: previewHighlight !== undefined ? previewHighlight : config.highlightColor
+  readonly property color highlightBase: effectiveHighlight !== "" ? effectiveHighlight : fg
+  onConfigChanged: if (previewHighlight !== undefined && previewHighlight === config.highlightColor) previewHighlight = undefined
+
+  function colorHex(c) { return Logic.rgbToHex(c.r * 255, c.g * 255, c.b * 255) }
+  // Five colours that complement the theme accent, at the lightness of the
+  // default highlight tint (Logic.highlightSuggestions).
+  readonly property var highlightSuggestions: Logic.highlightSuggestions(colorHex(accent), colorHex(fg))
+
   function saveSetting(key, value) {
     if (host) host.run(Logic.saveSettingCommand(moduleName, key, value))
   }
@@ -602,7 +615,7 @@ BarWidget {
         anchors.fill: parent
         anchors.margins: Style.space(3)
         radius: Style.cornerRadius
-        color: Util.alpha(root.fg, overflowMouse.containsMouse || root.overflowOpen ? 0.18 : 0.08)
+        color: Util.alpha(root.highlightBase, overflowMouse.containsMouse || root.overflowOpen ? 0.18 : 0.08)
       }
       Text {
         anchors.centerIn: parent
@@ -640,6 +653,9 @@ BarWidget {
   property Item menuAnchor: null
   readonly property bool overflowOpen: popup === "overflow"
   readonly property bool opened: popup === "settings"
+  // The colour picker card inside the settings popup.
+  property bool pickerOpen: false
+  onPopupChanged: if (popup !== "settings") pickerOpen = false
 
   // Owner for the bar's one-popup-at-a-time coordination. Deliberately not
   // the widget itself: the bar draws an "open" marker under the owning
@@ -733,6 +749,9 @@ BarWidget {
       overflowing: overflowing,
       unavailable: unavailable,
       settings: config,
+      highlight: effectiveHighlight,
+      highlightSuggestions: highlightSuggestions,
+      pickerOpen: pickerOpen,
       windows: windows.map(function(t) {
         return {
           address: hexAddress(t),
@@ -851,6 +870,7 @@ BarWidget {
     // Omarchy's own summon does), or close any popup.
     function overflow(): string { var w = root.focusedInstance(); w.showPopup("overflow"); return w.popup }
     function settings(): string { var w = root.focusedInstance(); w.open(); return w.popup }
+    function colorPicker(): string { var w = root.focusedInstance(); w.open(); w.pickerOpen = true; return w.popup }
     function closePopups(): void { root.instances().forEach(function(w) { w.close() }) }
 
     // How an app id's icon is resolved (bypasses the cache).
