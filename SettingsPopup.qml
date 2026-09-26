@@ -102,7 +102,7 @@ PopupCard {
 
     NumberField {
       width: column.width
-      label: "Button width (px)"
+      label: "Title button width (px)"
       from: 60
       to: 600
       stepSize: 10
@@ -114,7 +114,7 @@ PopupCard {
     }
     NumberField {
       width: column.width
-      label: "Minimum width before +N (px)"
+      label: "Minimum / icon-only width (px)"
       from: 24
       to: 300
       stepSize: 4

@@ -8,8 +8,8 @@ import "lib/Logic.js" as Logic
 
 // Windows-style taskbar for the Omarchy bar: one button per window on this
 // monitor's active workspace (plus its minimized windows), oldest on the left.
-// It sits at the front of the right section and grows toward the left
-// section; buttons share the free space, clamped to [minWidth, maxWidth].
+// Buttons share the free space, clamped to [minWidth, maxWidth]. Without
+// titles, they use minWidth so icons do not leave empty title space.
 // On a left/right bar it becomes a column of icon-only buttons.
 //
 // Pure logic (settings, ordering, layout, commands) lives in lib/Logic.js and
@@ -153,7 +153,7 @@ BarWidget {
   // on a left/right one (where buttons are icon-only squares).
   property real available: vertical ? barSize * 4 : maxWidth
   readonly property int count: windows.length
-  readonly property int maxExtent: vertical ? barSize : maxWidth
+  readonly property int maxExtent: vertical ? barSize : (showTitle ? maxWidth : minWidth)
   readonly property int minExtent: vertical ? barSize : minWidth
   readonly property int overflowExtent: vertical ? barSize : Style.space(30)
 

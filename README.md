@@ -117,8 +117,8 @@ also be changed with `omarchy bar set mourningazazel.taskbox <key> <value> --jso
 
 | Key | Default | |
 |---|---|---|
-| `maxWidth` | `200` | Default (widest) button width, px |
-| `minWidth` | `44` | Buttons shrink to this before windows go into `+N` |
+| `maxWidth` | `200` | Default width of buttons with titles, px |
+| `minWidth` | `44` | Minimum width before `+N`; button width in icon-only mode |
 | `showTitle` | `true` | Show window titles (off = icons only) |
 | `closeButton` | `"hover"` | When to show the `×`: `hover`, `always` or `never` |
 | `middleClickClose` | `true` | Middle-click closes a window |

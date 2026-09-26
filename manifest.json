@@ -40,7 +40,7 @@
         "key": "minWidth",
         "type": "number",
         "label": "Minimum width",
-        "description": "Buttons shrink to this before extra windows go into +N"
+        "description": "Minimum width before +N; width of icon-only buttons"
       },
       {
         "key": "showTitle",
