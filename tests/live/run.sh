@@ -207,6 +207,17 @@ check "the colour picker opens inside the settings popup" test "$(ipc colorPicke
 ipc closePopups >/dev/null
 check "…and resets when the popup closes" wait_for 3 '[[ $(here | jq .pickerOpen) == false ]]'
 check "settings popup opens" test "$(ipc settings)" = settings
+if command -v wtype >/dev/null; then
+  sleep 0.8; wtype -k Escape
+  check "Esc closes the settings" wait_for 3 '[[ $(here | jq -r .popup) == "" ]]'
+  ipc colorPicker >/dev/null; sleep 0.8; wtype -k Escape
+  check "with the colour picker open, Esc closes just the picker" wait_for 3 '[[ $(here | jq -r .popup) == settings && $(here | jq .pickerOpen) == false ]]'
+  wtype -k Escape
+  check "…and the next Esc the settings" wait_for 3 '[[ $(here | jq -r .popup) == "" ]]'
+  ipc settings >/dev/null
+else
+  skip "Esc closes the settings" "wtype not installed"
+fi
 ipc closePopups >/dev/null
 check "popups close" wait_for 3 '[[ $(here | jq -r .popup) == "" ]]'
 

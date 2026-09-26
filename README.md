@@ -98,7 +98,8 @@ fractional scaling are fine).
 
 <!-- screenshot to come: ![Taskbox settings popup, with a minimized window shown dimmed on the left](docs/settings.png) -->
 
-Right-click any button → **Taskbox settings…**, or run:
+Right-click any button → **Taskbox settings…** (close it with `×`, Esc, or
+by clicking anywhere else), or run:
 
 ```bash
 omarchy-shell shell toggle mourningazazel.taskbox

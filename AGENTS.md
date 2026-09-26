@@ -166,6 +166,7 @@ keybinds) are caught. The widget also learns origins live and merges the
 | `_state`, `_icons` mutated in place + `_stateRev` / `_iconRev` | Bindings may record into these without reassigning a property (which would re-trigger the binding: a *binding loop*). Revisions are bumped only from outside bindings, to invalidate. |
 | `recompute()` uses slot `region` + a 750 ms timer | Neighbours (clock, weather) resize silently; live positions lag during relayout, and our own size must not feed back into the budget. |
 | Web-app icons by URL host | Omarchy web apps have no `StartupWMClass`; Chromium classes them `chrome-<host>__<path>-<profile>`, matched to the desktop entry whose Exec URL has that host. |
+| Settings is a `KeyboardPanel`, not a `PopupCard` | xdg popups (PopupCard) only get keyboard focus after a click routes it through the bar, so Esc and typing failed when opened any other way (and on re-opens). Omarchy's `KeyboardPanel` primes layer-shell keyboard focus on open (`focusTarget: escapeCatcher`) and dismisses on outside clicks. Menus/overflow need no keys and stay `PopupCard`s. |
 | Colour picker is a card inside the settings popup | A second `PopupCard` from inside the settings popup starts its own Hyprland focus grab, which cancels the settings popup's grab and closes it. |
 | `previewHighlight` | A picked/typed colour shows on the buttons immediately; the `omarchy bar set` write is debounced, and the preview is dropped once the setting matches. |
 | `checkCompat()` 6 s after start | Lists features whose Omarchy prerequisites are missing (`unavailable`), logs `[taskbox] unavailable here: …` once, and shows it in the settings popup. |
@@ -236,12 +237,15 @@ Not public API — if something breaks after `omarchy update`, check these first
 6. `hl.get_config()` returns gradient colours as hex **strings**
    (`"0xC0D97B3F"`) inside `{ colors = {…} }`; `tonumber()` them before maths.
    (Bitwise operators exist in Lua 5.5 but fail on strings/floats.)
-7. `PopupCard` children must be Items: put `Timer`s etc. inside a child Item.
-8. After editing QML, run `tools/dev.sh reload`: the shell caches components
+7. Don't name QML methods like JS globals (`escape`, `eval`, `parseInt`, …):
+   the engine refuses them at load ("Illegal method name") and qmllint
+   doesn't notice; `tests/qml/lint.sh` checks for it.
+8. `PopupCard` children must be Items: put `Timer`s etc. inside a child Item.
+9. After editing QML, run `tools/dev.sh reload`: the shell caches components
    by file URL, so hot reload doesn't always pick changes up. Check
    `pgrep -xc quickshell` is 1 afterwards (concurrent restarts can spawn two).
-9. Quickshell's `DesktopEntries.applications` omits `NoDisplay=true` entries.
-10. `omarchy bar set <id> <key> <value>` stores strings unless `--json` is
+10. Quickshell's `DesktopEntries.applications` omits `NoDisplay=true` entries.
+11. `omarchy bar set <id> <key> <value>` stores strings unless `--json` is
     passed; `Logic.normalizeSettings` accepts both.
 
 ## Testing

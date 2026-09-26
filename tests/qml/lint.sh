@@ -27,6 +27,17 @@ ARGS=()
 for category in "${QUIET[@]}"; do ARGS+=("--$category" disable); done
 
 cd "$ROOT"
+
+# qmllint doesn't flag QML methods named like JS globals, but the engine
+# refuses them at load time ("Illegal method name") and the widget fails.
+RESERVED='escape|unescape|eval|isNaN|isFinite|parseInt|parseFloat|encodeURI|encodeURIComponent|decodeURI|decodeURIComponent'
+bad_names=$(grep -nE "^\s*function ($RESERVED)\(" ./*.qml || true)
+if [[ -n $bad_names ]]; then
+  echo "$bad_names"
+  echo "qmllint: QML method named like a JS global (Illegal method name at load)"
+  exit 1
+fi
+
 out=$("$QMLLINT" "${ARGS[@]}" -I "$IMPORTS" -I /usr/lib/qt6/qml ./*.qml 2>&1 || true)
 findings=$(grep -E "^(Warning|Error):" <<<"$out" || true)
 if [[ -n $findings ]]; then
