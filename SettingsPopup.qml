@@ -7,8 +7,13 @@ import "lib/Logic.js" as Logic
 // button's right-click menu, by right-clicking "+N", or with
 //   omarchy-shell shell toggle mourningazazel.taskbox
 // Every change is written straight to shell.json via `omarchy bar set`.
-PopupCard {
+// A KeyboardPanel, not a PopupCard: Omarchy's layer-shell panel that takes
+// keyboard focus when it opens (xdg popups like PopupCard only get keys after
+// a click routes focus through the bar), so Esc and typing into the fields
+// work, and a click anywhere outside dismisses it.
+KeyboardPanel {
   id: popup
+  focusTarget: escapeCatcher
 
   property var taskbar: null
 
@@ -30,6 +35,14 @@ PopupCard {
   }
 
   onOpenChanged: if (open) hexField.text = taskbar.effectiveHighlight
+
+  // Esc steps out one level: leave the hex field, then close the colour
+  // picker, then close the settings popup.
+  function stepOut() {
+    if (hexField.activeFocus) escapeCatcher.forceActiveFocus()
+    else if (taskbar.pickerOpen) taskbar.pickerOpen = false
+    else taskbar.close()
+  }
 
   function saveNumber(key, value) {
     var next = {}
@@ -86,12 +99,23 @@ PopupCard {
     }
   }
 
+  // Receives keys when nothing else in the popup has focus (outside the
+  // Column so it doesn't add a spacing gap).
+  Item {
+    id: escapeCatcher
+    width: 0
+    height: 0
+    focus: true
+    Keys.onEscapePressed: popup.stepOut()
+  }
+
   Column {
     id: column
     width: popup.contentWidth - popup.padding * 2
     spacing: Style.space(4)
 
-    // Lives in the Column: PopupCard's content slot only takes Items.
+
+    // Lives in the Column: the panel's content slot only takes Items.
     Timer {
       id: numberWrite
       interval: 400
@@ -101,13 +125,33 @@ PopupCard {
       }
     }
 
-    Text {
-      text: "Taskbox"
-      color: popup.fg
-      font.family: popup.fontFamily
-      font.pixelSize: Style.font.body
-      font.bold: true
-      bottomPadding: Style.space(4)
+    // Header: title + close button (Omarchy's panel action button). Esc
+    // closes too — see the key handler below.
+    Item {
+      width: column.width
+      height: Math.max(titleText.implicitHeight, closeButton.size) + Style.space(4)
+
+      Text {
+        id: titleText
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        text: "Taskbox"
+        color: popup.fg
+        font.family: popup.fontFamily
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+
+      PanelActionButton {
+        id: closeButton
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        iconText: "\uDB80\uDD56" // nf-md-close
+        tooltipText: "Close (Esc)"
+        foreground: popup.fg
+        fontFamily: popup.fontFamily
+        onClicked: popup.taskbar.close()
+      }
     }
 
     NumberField {
@@ -189,7 +233,7 @@ PopupCard {
             if (hex !== "" || text === "") popup.setHighlight(hex)
           }
           onEditingFinished: if (bad) text = popup.taskbar.effectiveHighlight
-          Keys.onEscapePressed: focus = false
+          Keys.onEscapePressed: popup.stepOut()
         }
 
         // Opens the colour picker card below.

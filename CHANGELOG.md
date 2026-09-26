@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — 2026-09-26
+
+- The settings popup has a close button, closes with Esc (the first Esc
+  closes the colour picker if it's open), and closes when you click
+  anywhere outside it. It's now an Omarchy keyboard panel, so Esc and
+  typing into its fields work reliably.
+
 ## 1.1.0 — 2026-09-26
 
 - Custom highlight colour for the buttons (settings → *Custom highlight
