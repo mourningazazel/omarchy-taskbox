@@ -24,7 +24,7 @@ jobs:
       - name: Omarchy 4.0.4+ plugin facade (only facade members of `bar`)
         run: tests/api/facade.sh
       - name: Unit tests (lib/Logic.js)
-        run: node --test tests/unit/
+        run: node --test "tests/unit/*.test.mjs"
         env:
           LUA: lua5.4
       - name: Lua tests (hypr/taskbox.lua against a mock Hyprland)

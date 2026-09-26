@@ -64,7 +64,7 @@ case "${1:-}" in
     status=0
     echo "== consistency";  "$HERE/tests/manifest.sh" || status=1
     echo "== plugin facade"; "$HERE/tests/api/facade.sh" || status=1
-    echo "== unit (node)";  (cd "$HERE" && node --test tests/unit/) || status=1
+    echo "== unit (node)";  (cd "$HERE" && node --test "tests/unit/*.test.mjs") || status=1
     echo "== lua";          (cd "$HERE" && "${LUA:-lua}" tests/lua/taskbox_spec.lua) || status=1
     echo "== qmllint";      "$HERE/tests/qml/lint.sh" || status=1
     ((status == 0)) && echo "all offline tests passed" || echo "SOME TESTS FAILED"

@@ -1,4 +1,4 @@
-// Unit tests for lib/Logic.js. Run: node --test tests/unit (or tools/dev.sh test)
+// Unit tests for lib/Logic.js. Run: node --test "tests/unit/*.test.mjs" (or tools/dev.sh test)
 import { test, describe } from "node:test"
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
