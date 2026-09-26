@@ -1,0 +1,4 @@
+*.bak*
+.DS_Store
+# Screenshots not published yet (they show local user/host names)
+docs/*.png

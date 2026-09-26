@@ -1,0 +1,31 @@
+name: test
+
+# Offline checks that don't need an Omarchy desktop. The QML lint and the
+# live integration suite need Omarchy + Hyprland; run them locally:
+#   tools/dev.sh test          (includes qmllint)
+#   tools/dev.sh test live
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y lua5.4 jq
+      - name: Consistency (manifest, settings, versions)
+        run: tests/manifest.sh
+      - name: Omarchy 4.0.4+ plugin facade (only facade members of `bar`)
+        run: tests/api/facade.sh
+      - name: Unit tests (lib/Logic.js)
+        run: node --test tests/unit/
+        env:
+          LUA: lua5.4
+      - name: Lua tests (hypr/taskbox.lua against a mock Hyprland)
+        run: lua5.4 tests/lua/taskbox_spec.lua

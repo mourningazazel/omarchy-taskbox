@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "id": "mourningazazel.taskbox",
+  "name": "Taskbox",
+  "version": "1.0.0",
+  "author": "mourningazazel",
+  "description": "Windows-style taskbar: a button per window on the current workspace, with close/force-kill, minimize, drag-to-workspace and a window menu",
+  "homepage": "https://github.com/mourningazazel/omarchy-taskbox",
+  "license": "MIT",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Taskbox.qml"
+  },
+  "barWidget": {
+    "displayName": "Taskbox",
+    "description": "A button per window on the current workspace",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "maxWidth": 200,
+      "minWidth": 44,
+      "showTitle": true,
+      "closeButton": "hover",
+      "middleClickClose": true,
+      "clickToMinimize": true,
+      "showMinimized": true,
+      "minimizeWorkspace": "minimized"
+    },
+    "schema": [
+      {
+        "key": "maxWidth",
+        "type": "number",
+        "label": "Button width",
+        "description": "Default (widest) width of a window button, in px"
+      },
+      {
+        "key": "minWidth",
+        "type": "number",
+        "label": "Minimum width",
+        "description": "Buttons shrink to this before extra windows go into +N"
+      },
+      {
+        "key": "showTitle",
+        "type": "boolean",
+        "label": "Window titles"
+      },
+      {
+        "key": "closeButton",
+        "type": "select",
+        "label": "Close button",
+        "options": [
+          {
+            "value": "hover",
+            "label": "On hover"
+          },
+          {
+            "value": "always",
+            "label": "Always"
+          },
+          {
+            "value": "never",
+            "label": "Never"
+          }
+        ]
+      },
+      {
+        "key": "middleClickClose",
+        "type": "boolean",
+        "label": "Middle-click closes"
+      },
+      {
+        "key": "clickToMinimize",
+        "type": "boolean",
+        "label": "Click focused window to minimize"
+      },
+      {
+        "key": "showMinimized",
+        "type": "boolean",
+        "label": "Show minimized windows"
+      },
+      {
+        "key": "minimizeWorkspace",
+        "type": "string",
+        "label": "Minimize workspace",
+        "description": "Special workspace minimized windows are parked on (matches a hyprbars minimize button using special:minimized)"
+      }
+    ]
+  }
+}
