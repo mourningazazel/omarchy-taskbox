@@ -12,6 +12,7 @@ Item {
   property bool inPopup: false
 
   readonly property bool compact: taskbar.vertical && !inPopup
+  readonly property bool iconOnly: !taskbar.vertical && !taskbar.showTitle && !inPopup
   readonly property bool minimized: taskbar.isMinimized(toplevel)
   readonly property bool active: toplevel ? toplevel.activated && !minimized : false
   readonly property bool urgent: toplevel ? toplevel.urgent : false
@@ -24,6 +25,8 @@ Item {
 
   readonly property bool closeShown: {
     if (compact || taskbar.closeButton === "never") return false
+    if (iconOnly) return width >= iconSize + closeSize + Style.space(6)
+      && (taskbar.closeButton === "always" || hovered)
     if (taskbar.closeButton === "always") return width >= iconSize + closeSize + pad * 2
     return hovered
   }
@@ -145,7 +148,8 @@ Item {
   Image {
     id: icon
     anchors.left: parent.left
-    anchors.leftMargin: !button.compact && (button.titleShown || button.closeShown) ? button.pad : (parent.width - width) / 2
+    anchors.leftMargin: button.iconOnly && button.closeShown ? Style.space(3)
+      : !button.compact && (button.titleShown || button.closeShown) ? button.pad : (parent.width - width) / 2
     anchors.verticalCenter: parent.verticalCenter
     width: button.iconSize
     height: button.iconSize
