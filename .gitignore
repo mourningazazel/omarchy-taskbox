@@ -1,4 +1,4 @@
 *.bak*
 .DS_Store
-# Screenshots not published yet (they show local user/host names)
-docs/*.png
+# An old local screenshot that shows user/host names
+docs/screenshot.png
