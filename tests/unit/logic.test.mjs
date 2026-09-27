@@ -48,6 +48,19 @@ describe("settings", () => {
     assert.equal(s.closeButton, "hover")
   })
 
+  test("wrong JSON types fall back instead of leaking through", () => {
+    const s = L.normalizeSettings({ maxWidth: {}, minWidth: [], showTitle: 1, closeButton: ["never"], middleClickClose: "yes",
+      preview: { mode: "all" }, highlightColor: 123456, minimizeWorkspace: ["x"] })
+    assert.equal(s.maxWidth, 200)
+    assert.equal(s.minWidth, 44)
+    assert.equal(s.showTitle, true)
+    assert.equal(s.middleClickClose, true)
+    assert.equal(s.preview, "minimized")
+    assert.equal(s.highlightColor, "#123456")   // a bare number reads as hex digits
+    assert.equal(s.minimizeWorkspace, "x")        // ["x"] stringifies to a valid name
+    for (const junk of [null, 42, "str", []]) assert.equal(L.normalizeSettings(junk).maxWidth, 200)
+  })
+
   test("minimize workspace is sanitised (it goes into a Hyprland selector)", () => {
     assert.equal(L.normalizeSettings({ minimizeWorkspace: "special:parked" }).minimizeWorkspace, "parked")
     for (const bad of ["a\"); os.exit()--", "has space", "", "x".repeat(65), "new\nline"])
@@ -262,6 +275,17 @@ describe("layout", () => {
         const used = L.contentExtent(r.fitCount, r.buttonExtent, r.overflowing, 30, 4, 0)
         // Only a single forced button (fit=1) may exceed a tiny space.
         if (r.fitCount > 1) assert.ok(used <= available, `used ${used} > ${available} (count ${count})`)
+      }
+    }
+  })
+
+  test("odd available space (unmeasured bar: NaN, negative, tiny) still gives a sane layout", () => {
+    for (const available of [NaN, undefined, -50, 0, 1, 10, Infinity]) {
+      for (const count of [1, 2, 7]) {
+        const r = L.layout(count, available, 44, 200, 30, 4)
+        assert.ok(r.fitCount >= 1 && r.fitCount <= count, `fit ${r.fitCount} for ${count} in ${available}`)
+        assert.ok(Number.isFinite(r.buttonExtent) && r.buttonExtent >= 44 && r.buttonExtent <= 200, `extent ${r.buttonExtent} in ${available}`)
+        assert.equal(r.overflowing, r.fitCount < count)
       }
     }
   })
@@ -487,14 +511,18 @@ describe("hover previews", () => {
   })
 
   // Run the real capture script against stub hyprctl / grim.
-  function runCapture({ clients, monitors = "[]", grimStatus = 0, box = [400, 240], address = "0xabc" }) {
+  function runCapture({ clients, monitors = "[]", grimStatus = 0, grimCrash = false, grimHang = false, box = [400, 240], address = "0xabc" }) {
     const dir = mkdtempSync(join(tmpdir(), "taskbox-preview-"))
     const stub = (name, body) => { writeFileSync(join(dir, name), "#!/bin/sh\n" + body + "\n"); chmodSync(join(dir, name), 0o755) }
     writeFileSync(join(dir, "clients.json"), clients)
     writeFileSync(join(dir, "monitors.json"), monitors)
     stub("hyprctl", `case "$2" in clients) cat "${dir}/clients.json" ;; monitors) cat "${dir}/monitors.json" ;; esac`)
     // Records its arguments; writes a fake PNG to the path it's given.
-    stub("grim", `echo "$@" > "${dir}/grim.args"; [ ${grimStatus} -eq 0 ] || exit ${grimStatus}; for last; do :; done; printf png > "$last"`)
+    stub("grim", `echo "$@" > "${dir}/grim.args"; for last; do :; done; printf half > "$last"`
+      // A crash is exit status 139 (128 + SIGSEGV) to the script. Not a real
+      // signal: that would dump core, and Omarchy announces every core dump.
+      + (grimCrash ? `; exit 139` : "") + (grimHang ? `; exec sleep 30` : "")
+      + `; [ ${grimStatus} -eq 0 ] || exit ${grimStatus}; printf png > "$last"`)
     const out = join(dir, "previews", "abc.png")
     const argv = L.previewCaptureArgs(address, out, box[0], box[1])
     let status = 0
@@ -544,11 +572,53 @@ describe("hover previews", () => {
     }
   })
 
-  test("capture: grim failing (missing, old, capture refused) → exit 4, no partial file", () => {
+  test("capture: grim failing (old, capture refused) → exit 4, no partial file", () => {
     const r = runCapture({ clients: client(), grimStatus: 1 })
     assert.equal(r.status, 4)
     assert.equal(r.written, false)
     same(r.leftovers, [])
+  })
+
+  test("capture: grim missing → exit 4 (not reported as a crash)", () => {
+    const r = runCapture({ clients: client(), grimStatus: 127 })
+    assert.equal(r.status, 4)
+  })
+
+  test("capture: grim crashing (1.5.0 segfaults on a failed toplevel capture) → exit 5, no partial file", () => {
+    const r = runCapture({ clients: client(), grimCrash: true })
+    assert.equal(r.status, 5)
+    assert.equal(r.written, false)
+    same(r.leftovers, [])
+  })
+
+  test("capture: grim hanging is cut off after 3 s → exit 5", () => {
+    const started = Date.now()
+    const r = runCapture({ clients: client(), grimHang: true })
+    assert.equal(r.status, 5)
+    assert.ok(Date.now() - started < 6000)
+    same(r.leftovers, [])
+  })
+
+  test("every capture exit status has a name for the log", () => {
+    for (const code of [0, 3, 4, 5]) assert.equal(typeof L.PREVIEW_EXIT[code], "string")
+  })
+
+  test("windows settle for 1 s after opening / moving / floating before a capture", () => {
+    assert.equal(L.PREVIEW_SETTLE_MS, 1000)
+    assert.equal(L.previewSettleDelay(undefined, 5000), 0)
+    assert.equal(L.previewSettleDelay(0, 5000), 0)
+    assert.equal(L.previewSettleDelay(4000, 5000), 0)
+    assert.equal(L.previewSettleDelay(4500, 5000), 500)
+    assert.equal(L.previewSettleDelay(4999.5, 5000), 1000)
+    assert.equal(L.previewSettleDelay(4500, 5000, 200), 0)
+  })
+
+  test("events that start a window animation", () => {
+    assert.equal(L.changedWindowOf("openwindow", "aaab7d21c810,special:taskboxprobe,foot,foot"), "aaab7d21c810")
+    assert.equal(L.changedWindowOf("movewindowv2", "0xAAAB7D21C810,-97,special:minimized"), "aaab7d21c810")
+    assert.equal(L.changedWindowOf("changefloatingmode", "aaab7d21c810,1"), "aaab7d21c810")
+    for (const [name, data] of [["movewindow", "abc,2"], ["windowtitlev2", "abc,x"], ["openwindow", ""], ["openwindow", "zz,1"], ["custom", "abc"]])
+      assert.equal(L.changedWindowOf(name, data), "", name + " " + data)
   })
 
   test("cleanup script also removes the preview pictures when Taskbox is disabled", () => {

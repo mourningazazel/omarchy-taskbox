@@ -20,7 +20,7 @@
 local T = _G.Taskbox or {}
 _G.Taskbox = T
 
-T.version = "1.2.0"
+T.version = "1.2.1"
 T.arrivals = T.arrivals or {}     -- workspace id -> window address
 T.last = T.last or {}             -- window address -> last regular workspace id
 T.installed = T.installed         -- binds / rule / hook are in place

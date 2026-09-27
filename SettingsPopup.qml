@@ -25,13 +25,14 @@ KeyboardPanel {
   readonly property color fg: taskbar ? taskbar.fg : Color.foreground
   readonly property string fontFamily: taskbar ? taskbar.fontFamily : Style.font.family
 
-  // Number fields fire on every step; write once the value settles.
+  // Number fields fire on every step and the colour picker on every drag
+  // move; write once the value settles.
   property var pending: ({})
   // Highlight colour: preview on the taskbar at once, write once it settles.
   function setHighlight(hex) {
     taskbar.previewHighlight = hex
     if (hexField.text !== hex && !hexField.activeFocus) hexField.text = hex
-    saveNumber("highlightColor", hex)
+    saveLater("highlightColor", hex)
   }
 
   onOpenChanged: if (open) hexField.text = taskbar.effectiveHighlight
@@ -44,12 +45,12 @@ KeyboardPanel {
     else taskbar.close()
   }
 
-  function saveNumber(key, value) {
+  function saveLater(key, value) {
     var next = {}
     for (var k in pending) next[k] = pending[k]
     next[key] = value
     pending = next
-    numberWrite.restart()
+    pendingWrite.restart()
   }
 
   component Label: Text {
@@ -117,7 +118,7 @@ KeyboardPanel {
 
     // Lives in the Column: the panel's content slot only takes Items.
     Timer {
-      id: numberWrite
+      id: pendingWrite
       interval: 400
       onTriggered: {
         for (var key in popup.pending) popup.taskbar.saveSetting(key, popup.pending[key])
@@ -164,7 +165,7 @@ KeyboardPanel {
       foreground: popup.fg
       accent: popup.taskbar.accent
       fontFamily: popup.fontFamily
-      onModified: function(v) { popup.saveNumber("maxWidth", v) }
+      onModified: function(v) { popup.saveLater("maxWidth", v) }
     }
     NumberField {
       width: column.width
@@ -176,7 +177,7 @@ KeyboardPanel {
       foreground: popup.fg
       accent: popup.taskbar.accent
       fontFamily: popup.fontFamily
-      onModified: function(v) { popup.saveNumber("minWidth", v) }
+      onModified: function(v) { popup.saveLater("minWidth", v) }
     }
 
     SwitchRow {
