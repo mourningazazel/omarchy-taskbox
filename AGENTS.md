@@ -39,8 +39,9 @@ list/focus/close only (`integrated` stays false).
 | `hypr/taskbox.lua` | Hyprland side: Alt binds, hover rule, hooks, and the `Taskbox.*` actions. **Tested against a mock `hl`.** |
 | `tests/` | See [Testing](#testing). |
 | `tools/dev.sh` | Dev helpers: test, ipc, reload, logs, validate, state, lua, events, probe windows. |
-| `.github/workflows/test.yml` | CI: consistency + unit + Lua tests. |
-| `docs/` | README screenshots. |
+| `.github/workflows/test.yml` | CI: consistency + unit + Lua tests. No `sudo` / package managers (see [Marketplace](#marketplace)). |
+| `preview.png` | README hero and the marketplace card (the marketplace reads a root `preview.png`). |
+| `docs/` | Other README screenshots. |
 
 ## Architecture
 
@@ -401,6 +402,19 @@ Quickshell types: `/usr/lib/qt6/qml/Quickshell/**/*.qmltypes`.
 - Events/tags/globals are namespaced `taskbox` (`taskbox>>`, `taskbox-alt>>`,
   `taskbox-hover`, `taskbox-from-<id>`, `_G.Taskbox`).
 
+## Marketplace
+
+Taskbox is submitted to the Omarchy plugin marketplace
+([omacom/omarchy-plugin-marketplace](https://github.com/omacom/omarchy-plugin-marketplace),
+`SUBMISSION.md`). Every submission and update is statically scanned (its
+"Automated Security Baseline"); only a clean `passed` result is verified
+automatically. Keep it that way — **anywhere in the repo, CI included**:
+no `sudo` / `pkexec`, no package-manager installs, no `curl … | sh`, no
+unpinned remote Git builds, no `systemctl`, no bundled binaries. The
+scanner is `buildSecurityBaseline()` in the marketplace's
+`scripts/security-baseline-analysis.mjs`; feed it `git ls-files` contents
+to check locally. The plugin ID `mourningazazel.taskbox` is permanent there.
+
 ## Release checklist
 
 1. Bump the version in `manifest.json`, `hypr/taskbox.lua` (`T.version`) and
@@ -415,3 +429,6 @@ Quickshell types: `/usr/lib/qt6/qml/Quickshell/**/*.qmltypes`.
    Alt+×, hover highlight and preview, drag to a workspace (then visit it), Alt+drag,
    minimize/restore, settings changes persist.
 5. Commit, tag `vX.Y.Z`, push. Users update with `omarchy plugin update`.
+6. Marketplace: open the **Plugin verification** issue form →
+   *Verify and publish a newer upstream commit* with the plugin ID, repo URL
+   and the full 40-character SHA of `main`.
