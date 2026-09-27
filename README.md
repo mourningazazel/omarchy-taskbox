@@ -1,13 +1,13 @@
 # Taskbox
 
-Workspace-specific task tabs on [Omarchy](https://omarchy.org) bar: a button
-for every window on the current workspace, with its icon, title and a close
-button.
+Workspace-specific task tabs for the [Omarchy](https://omarchy.org) bar: a
+button for every window on the current workspace, with its icon, title and a
+close button.
 
 Minimize and restore, drag a window to another workspace, peek at a
 minimized window, and force-kill a stuck app — all from the bar.
 
-<img src="docs/preview.png" alt="Taskbox in the Omarchy bar: a Firefox button and a minimized Discord window, with the Discord window's hover preview below its button" width="760">
+<img src="preview.png" alt="Taskbox in the Omarchy bar: a Firefox button and a minimized Discord window, with the Discord window's hover preview below its button" width="760">
 
 ## Install
 
@@ -17,8 +17,28 @@ omarchy bar move mourningazazel.taskbox --section right --index 0
 ```
 
 The second line puts it at the start of the right section, where it's
-designed to sit. Needs Omarchy 4.0+. Nothing else to set up: Taskbox loads
-its Hyprland side itself and never edits your Hyprland config.
+designed to sit. Nothing else to set up.
+
+## Requirements
+
+- **Omarchy 4.0 or newer** (Hyprland 0.56+ with its Lua config).
+- Tools it runs, all part of a standard Omarchy install: `hyprctl`, `jq`,
+  `grim` 1.5+ (hover previews), `flock` and `timeout`.
+
+## What it changes on your system
+
+Taskbox never edits your config files. While it's enabled:
+
+- It loads [`hypr/taskbox.lua`](hypr/taskbox.lua) into the running Hyprland:
+  four Alt key binds that let everything else see Alt as usual, a window rule
+  for the hover highlight, and a few event hooks. They live only in memory.
+- Its settings are saved on its own entry in `~/.config/omarchy/shell.json`,
+  when you change them.
+- Hover preview pictures are kept in `$XDG_RUNTIME_DIR/taskbox-preview`
+  (see [Previews](#previews)).
+
+Removing Taskbox makes Hyprland reload its config once, which drops
+everything it loaded, and deletes the preview pictures.
 
 ## Using it
 
@@ -133,9 +153,6 @@ sized to that bar (any resolution or scale).
 omarchy plugin update mourningazazel.taskbox
 omarchy plugin remove mourningazazel.taskbox
 ```
-
-Removing Taskbox makes Hyprland reload its config once, which clears
-everything Taskbox added, and deletes the preview pictures.
 
 ## Troubleshooting
 

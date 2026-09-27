@@ -4,7 +4,7 @@
   "name": "Taskbox",
   "version": "1.2.1",
   "author": "mourningazazel",
-  "description": "Windows-style taskbar: a button per window on the current workspace, with close/force-kill, minimize, drag-to-workspace and a window menu",
+  "description": "Workspace-specific task tabs for the bar: a button per window on the current workspace, with minimize and restore, hover previews, drag-to-workspace, close / force kill and a window menu",
   "homepage": "https://github.com/mourningazazel/omarchy-taskbox",
   "license": "MIT",
   "kinds": [
