@@ -7,7 +7,7 @@ button.
 Minimize and restore, drag a window to another workspace, peek at a
 minimized window, and force-kill a stuck app — all from the bar.
 
-<!-- screenshot to come: ![Taskbox in the Omarchy bar, with a window's right-click menu open](docs/screenshot.png) -->
+<img src="docs/preview.png" alt="Taskbox in the Omarchy bar: a Firefox button and a minimized Discord window, with the Discord window's hover preview below its button" width="760">
 
 ## Install
 
@@ -36,6 +36,8 @@ its Hyprland side itself and never edits your Hyprland config.
 | **Drag** onto a workspace number | Send the window there without following it |
 | **Alt + drag** | Move the whole taskbar elsewhere in the bar |
 
+<img src="docs/menu.png" alt="A button's right-click menu: minimize, maximize / restore size, float / tile, move to workspace 1–0, close, force kill app, Taskbox settings" width="360">
+
 - **Buttons share the space.** They start at a default width, shrink as
   windows open, and the rest go into a `+N` list. Oldest window on the left.
 - **A tooltip only when it adds something:** the full title, if the button
@@ -53,6 +55,8 @@ its Hyprland side itself and never edits your Hyprland config.
 - **Vertical bars** get a column of icon-only buttons.
 
 ## Settings
+
+<img src="docs/settings.png" alt="The Taskbox settings popup, with the colour picker for the custom highlight open" width="360">
 
 Right-click any button → **Taskbox settings…** (close with `×`, Esc or a
 click outside), or:
