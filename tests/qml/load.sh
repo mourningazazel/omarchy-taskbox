@@ -116,7 +116,13 @@ if ((WINDOWS)); then
   ipc preview "$A" >/dev/null
   for _ in $(seq 1 20); do [[ $(pvs) == "[true,true,"* ]] && break; sleep 0.1; done
   ipc preview "$B" >/dev/null
-  sleep 1.2
+  # B has no picture yet: once its capture lands it must be the one in front
+  # (an older picture reloading behind it used to swap itself back in).
+  for _ in $(seq 1 15); do [[ $(pvs) == "[true,true,"* ]] && break; sleep 0.1; done
+  sleep 0.8
+  S=$(ipc state | jq -c '.[0].preview | [.shown, .image, (.readyKey == (.target | ltrimstr("0x")))]')
+  [[ $S == "[true,true,true]" ]] && ok "switching to a window with no picture yet shows its own picture" \
+    || bad "switching to a window with no picture yet shows its own picture" "[shown, image, ready = target]: $S"
   N=$(ipc state | jq .[0].preview.captures)
   ipc preview "$A" >/dev/null
   for _ in $(seq 1 12); do [[ $(pvs) == "[true,true,$N]" ]] && break; sleep 0.1; done

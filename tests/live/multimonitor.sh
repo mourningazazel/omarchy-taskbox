@@ -107,7 +107,9 @@ for i in 1 2 3; do
 done
 wait_for 10 '[[ $(probes | wc -l) -ge 3 ]]'
 mapfile -t P < <(probes)
-check "the virtual monitor's bar lists its 3 windows" wait_for 5 '[[ $(on "$OUT" | jq ".windows | length") -eq 3 ]]'
+# (Hyprland may give the new monitor a workspace that isn't shown elsewhere
+# — with your windows on it — so check for the probes, not an exact count.)
+check "the virtual monitor's bar lists its 3 windows" wait_for 5 '[[ $(on "$OUT" | jq --argjson p "$(printf "%s\n" "${P[@]}" | jq -R . | jq -s .)" "[.windows[].address] | contains(\$p)") == true ]]'
 check "the main bar lists none of them" test "$(on "$MAIN" | jq --argjson p "$(printf '%s\n' "${P[@]}" | jq -R . | jq -s .)" '[.windows[] | select(.address as $a | $p | index($a))] | length')" -eq 0
 check "each bar sizes itself to its own width" test "$(state | jq 'all(.[]; .available <= .barLength)')" = true
 S=$(on "$OUT")
@@ -136,7 +138,9 @@ section "hover previews are per monitor"
 # "all": the probes here aren't minimized. (Captures only ever touch probes.)
 omarchy bar set "$ID" preview all >/dev/null
 wait_for 5 '[[ $(state | jq "all(.[]; .preview.mode == \"all\")") == true ]]'
-check "a window on the other monitor gets a preview" test "$(ipc preview "${P[1]}")" = ok
+# A probe with a button of its own there (not in +N).
+PV=$(on "$OUT" | jq -r --argjson p "$(printf '%s\n' "${P[@]}" | jq -R . | jq -s .)" '[.windows[] | select(.shown and (.address as $a | $p | index($a)))][0].address')
+check "a window on the other monitor gets a preview" test "$(ipc preview "$PV")" = ok
 check "…on that monitor's bar only" wait_for 3 '[[ $(on "$OUT" | jq ".preview.shown and .preview.image") == true && $(on "$MAIN" | jq .preview.shown) == false ]]'
 check "…sized for that monitor (dpr $(on "$OUT" | jq .preview.dpr))" test "$(on "$OUT" | jq '.preview.size[0] >= 200 and .preview.size[0] <= 240')" = true
 ipc preview "" >/dev/null

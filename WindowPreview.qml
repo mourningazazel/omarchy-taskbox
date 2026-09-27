@@ -177,7 +177,14 @@ Item {
       capturing: proc.running,
       last: entry ? { ok: entry.ok, ms: entry.ms, ageMs: Date.now() - entry.time } : null,
       size: [Math.round(card.width), Math.round(card.height)],
-      dpr: popup.anchor.window ? popup.anchor.window.devicePixelRatio : null
+      dpr: popup.anchor.window ? popup.anchor.window.devicePixelRatio : null,
+      // The two double-buffered images: whose picture, load status, and
+      // which one is in front / whose picture counts as ready.
+      buffers: [thumbA, thumbB].map(function(img) {
+        return { forKey: img.forKey, status: ["null", "ready", "loading", "error"][img.status] || String(img.status) }
+      }),
+      front: thumbs.frontIndex,
+      readyKey: thumbs.readyKey
     }
   }
 
@@ -359,7 +366,7 @@ Item {
           function forget(k) {
             for (var i = 0; i < 2; i++) {
               var img = i === 0 ? thumbA : thumbB
-              if (img.forKey === k) { img.source = ""; img.forKey = "" }
+              if (img.forKey === k) { img.pending = false; img.source = ""; img.forKey = "" }
             }
             if (readyKey === k) readyKey = ""
           }
@@ -375,12 +382,17 @@ Item {
               return
             }
             back.forKey = preview.key
+            back.pending = true
             back.source = url
           }
 
           component Thumb: Image {
             id: self
             property string forKey: ""
+            // Set when Taskbox gives it a new picture; only that load swaps
+            // it in. (Qt also reloads images by itself, e.g. when the popup
+            // window reappears — a hidden, older picture must not come back.)
+            property bool pending: false
             anchors.fill: parent
             fillMode: Image.PreserveAspectFit
             asynchronous: true
@@ -390,10 +402,12 @@ Item {
             smooth: true
             mipmap: true
             onStatusChanged: {
-              if (status === Image.Ready && self === thumbs.back) {
-                thumbs.frontIndex = thumbs.frontIndex === 0 ? 1 : 0
-                thumbs.readyKey = self.forKey
-              }
+              if (status === Image.Error) self.pending = false
+              if (status !== Image.Ready || !self.pending) return
+              self.pending = false
+              if (self !== thumbs.back) return
+              thumbs.frontIndex = thumbs.frontIndex === 0 ? 1 : 0
+              thumbs.readyKey = self.forKey
             }
           }
           Thumb { id: thumbA; visible: thumbs.frontIndex === 0 && forKey === preview.key }
