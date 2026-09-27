@@ -8,8 +8,9 @@
   closing / force-killing from Taskbox waits for a capture of that window to
   finish, and grim gets 3 seconds before it's stopped.
 - A preview card appears once its picture is in (or after a second, with the
-  app icon), instead of changing size when the picture lands, and a refresh
-  swaps the new picture in without a blink. On a bottom bar the card stays
+  app icon), instead of changing size when the picture lands, and doesn't
+  vanish and come back while its first picture loads. A refresh swaps the
+  new picture in without a blink; a failed refresh keeps the last picture. On a bottom bar the card stays
   attached to the button when its height changes.
 - Settings with the wrong JSON type (e.g. `"minWidth": []`) fall back to the
   default instead of the minimum, and a bar that hasn't been measured yet no

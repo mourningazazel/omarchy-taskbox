@@ -149,7 +149,9 @@ Item {
     for (var i = 0; i < queue.length; i++) queue[i]()
   }
 
-  // Drop pictures of windows that have closed.
+  // Drop pictures of windows that have closed: their cache entries, any
+  // image still holding one (addresses are reused, and a held image would
+  // re-read a deleted file), then the files.
   function forgetClosed() {
     var live = {}
     var all = Hyprland.toplevels.values
@@ -158,6 +160,7 @@ Item {
     for (var k in _cache) {
       if (live[k]) continue
       delete _cache[k]
+      thumbs.forget(k)
       gone.push(Logic.shellQuote(Logic.previewFile(dir, k)))
     }
     for (var c in _changed) if (!live[c]) delete _changed[c]
@@ -233,6 +236,7 @@ Item {
     target: preview.taskbar
     function onWindowsChanged() {
       if (preview.toplevel && preview.taskbar.windows.indexOf(preview.toplevel) === -1) preview.hide()
+      else preview.forgetClosed()
     }
   }
 
@@ -346,11 +350,30 @@ Item {
           property int frontIndex: 0
           readonly property Image front: frontIndex === 0 ? thumbA : thumbB
           readonly property Image back: frontIndex === 0 ? thumbB : thumbA
-          // Whose picture the front image holds ("" = none yet).
-          readonly property string frontKey: front.status === Image.Ready ? front.forKey : ""
+          // Whose picture has been decoded into the front image. Latched when
+          // it's swapped in, not read from the image's status: an image
+          // reloads (briefly "Loading") when the popup window first appears.
+          property string readyKey: ""
+          readonly property string frontKey: front.forKey === readyKey ? readyKey : ""
+
+          function forget(k) {
+            for (var i = 0; i < 2; i++) {
+              var img = i === 0 ? thumbA : thumbB
+              if (img.forKey === k) { img.source = ""; img.forKey = "" }
+            }
+            if (readyKey === k) readyKey = ""
+          }
 
           onUrlChanged: {
             if (url === "") return
+            // Already decoded in one of the two (switching back to a window
+            // within its reuse window): no new load, so no Ready to wait for.
+            if (String(front.source) === url && front.status === Image.Ready) { readyKey = front.forKey; return }
+            if (String(back.source) === url && back.status === Image.Ready) {
+              frontIndex = frontIndex === 0 ? 1 : 0
+              readyKey = front.forKey
+              return
+            }
             back.forKey = preview.key
             back.source = url
           }
@@ -361,11 +384,16 @@ Item {
             anchors.fill: parent
             fillMode: Image.PreserveAspectFit
             asynchronous: true
-            cache: false
+            // Each picture has its own URL (?rev), so the pixmap cache never
+            // serves a stale one, and a reload doesn't go back to the disk.
+            cache: true
             smooth: true
             mipmap: true
             onStatusChanged: {
-              if (status === Image.Ready && self === thumbs.back) thumbs.frontIndex = thumbs.frontIndex === 0 ? 1 : 0
+              if (status === Image.Ready && self === thumbs.back) {
+                thumbs.frontIndex = thumbs.frontIndex === 0 ? 1 : 0
+                thumbs.readyKey = self.forKey
+              }
             }
           }
           Thumb { id: thumbA; visible: thumbs.frontIndex === 0 && forKey === preview.key }

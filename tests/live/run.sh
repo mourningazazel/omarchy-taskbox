@@ -268,6 +268,19 @@ check "hovering again within 3 s reuses the picture" test "$(pv | jq --argjson c
 ipc preview "${P[1]}" >/dev/null
 check "moving to another minimized window switches at once" wait_for 2 '[[ $(pv | jq -r .target) == ${P[1]} && $(pv | jq ".shown and .image") == true ]]'
 check "…capturing that one" test "$(pv | jq .captures)" -eq $((C0 + 2))
+# A window with no picture yet: the card must not show, vanish and come back
+# while the picture loads and the popup window first appears.
+spawn_probes 1
+F=$(comm -13 <(printf '%s\n' "${P[@]}" | sort) <(probes | sort) | head -1)
+park "$F"
+wait_for 5 '[[ $(here | jq --arg a "$F" "any(.windows[]; .address == \$a)") == true ]]'
+sleep 1.2   # past the settle delay after the move
+ipc preview "$F" >/dev/null
+SAMPLES=""
+for _ in $(seq 1 20); do SAMPLES+=$(pv | jq -r 'if .shown then "1" else "0" end'); sleep 0.1; done
+check "once up, a card stays up while its first picture loads (no flicker)" bash -c '[[ $1 =~ ^0*1+$ ]]' _ "$SAMPLES"
+ipc preview "" >/dev/null
+lua "hl.dsp.window.close({ window = \"address:$F\" })"
 sleep 3.2   # (the card on P1 refreshes once meanwhile)
 N=$(pv | jq .captures); ipc preview "${P[0]}" >/dev/null
 check "after 3 s the next hover takes a fresh one" wait_for 3 '[[ $(pv | jq ".shown and .captures == $((N + 1))") == true ]]'
@@ -284,8 +297,10 @@ else
   skip "a window that isn't minimized gets no preview" "no regular window on this workspace"
 fi
 ipc previewFailure true >/dev/null
-sleep 3.2; ipc preview "${P[0]}" >/dev/null
+ipc preview "${P[2]}" >/dev/null   # never captured before
 check "a failed capture still shows the card (with the app icon)" wait_for 3 '[[ $(pv | jq ".shown and (.image | not) and .last.ok == false") == true ]]'
+sleep 3.2; ipc preview "${P[0]}" >/dev/null   # has a picture from earlier
+check "a failed refresh keeps the last good picture" wait_for 3 '[[ $(pv | jq ".shown and .image and .last.ok == false") == true ]]'
 ipc previewFailure false >/dev/null
 ipc preview "" >/dev/null
 omarchy bar set "$ID" preview off >/dev/null

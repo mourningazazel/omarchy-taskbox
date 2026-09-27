@@ -107,6 +107,23 @@ if ((WINDOWS)); then
   [[ $TITLES == storm* ]] && ok "the retitling window's button keeps up ($TITLES)" || bad "retitling window" "$TITLES"
   ((CPU < 25)) && ok "retitle storm costs ${CPU}% of a core (< 25%)" || bad "retitle storm costs ${CPU}% of a core" "expected < 25%"
 
+  # Going back to a window within 3 s shows its picture again without a new
+  # capture. (The no-flicker check is in tests/live/run.sh: it needs a real
+  # bar window to show.)
+  A=$(jq -r '[.[] | select(.title == "")][0].address' <<<"$W")
+  B=$(jq -r --arg l "$LONG" '[.[] | select(.title == $l)][0].address' <<<"$W")
+  pvs() { ipc state | jq -c '.[0].preview | [.shown, .image, .captures]'; }
+  ipc preview "$A" >/dev/null
+  for _ in $(seq 1 20); do [[ $(pvs) == "[true,true,"* ]] && break; sleep 0.1; done
+  ipc preview "$B" >/dev/null
+  sleep 1.2
+  N=$(ipc state | jq .[0].preview.captures)
+  ipc preview "$A" >/dev/null
+  for _ in $(seq 1 12); do [[ $(pvs) == "[true,true,$N]" ]] && break; sleep 0.1; done
+  [[ $(pvs) == "[true,true,$N]" ]] && ok "back to a window within 3 s: its picture again, no new capture" \
+    || bad "back to a window within 3 s: its picture again, no new capture" "$(pvs) (captures before: $N)"
+  ipc preview "" >/dev/null
+
   # A window that just moved (its minimize animation resizes it, and grim
   # 1.5.0 crashes if a window resizes mid-capture) waits until it settled.
   hyprctl dispatch "hl.dsp.exec_cmd(\"foot -a $PROBE sleep 600\", { workspace = \"special:taskboxprobe silent\" })" >/dev/null
