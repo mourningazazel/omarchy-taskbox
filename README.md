@@ -53,7 +53,7 @@ focuses and closes windows; the extras switch themselves off.
 | Click the focused window | Minimize it (can be turned off) |
 | Click a minimized (dimmed) window | Restore it onto this workspace |
 | Middle-click | Close the window |
-| Hover | Light up that window's border, without focusing it |
+| Hover | Light up that window's border, without focusing it (plus the full title in a tooltip if the button cuts it off) |
 | Rest on a minimized window | A thumbnail of it appears under the button |
 | `×` | Close the window (the app may ask to save) |
 | **Alt** + `×` | Force kill the app (the `×` turns red while Alt is held) |

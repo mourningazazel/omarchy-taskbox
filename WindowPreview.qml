@@ -7,8 +7,8 @@ import "lib/Logic.js" as Logic
 
 // Hover thumbnail of a window, under its button (beside it on a vertical
 // bar): a small card with a picture of the window, in place of the button's
-// tooltip. The title is added only when the button doesn't show it
-// (vertical bar, titles off, or a button too narrow for one). By default only for minimized windows (setting
+// tooltip. The title is added only when the button doesn't show all of it
+// (vertical bar, titles off, or cut off on a narrow button). By default only for minimized windows (setting
 // `preview`: minimized / all / off).
 //
 // The picture comes from grim, run as its own short-lived process (see the
@@ -242,7 +242,7 @@ Item {
 
       Text {
         id: title
-        visible: !!preview.anchorItem && preview.anchorItem.titleShown === false
+        visible: !!preview.anchorItem && preview.anchorItem.titleFullyVisible === false
         x: card.pad
         y: card.pad
         width: preview.boxWidth

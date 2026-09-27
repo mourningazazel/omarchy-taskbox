@@ -49,6 +49,19 @@ Item {
   onPreviewWantedChanged: taskbar.preview.hover(button, toplevel, previewWanted)
   function showsPreview() { return !inPopup && taskbar.preview.eligible(toplevel) }
 
+  // The whole title is readable on the button itself (not hidden, not cut
+  // off). Re-evaluated while hovering: an on-hover × narrows the title.
+  readonly property bool titleFullyVisible: titleShown && !titleText.truncated
+  // Tooltip only when it adds something: no preview card, and the title is
+  // hidden or truncated. Otherwise the window's hover highlight is the cue.
+  readonly property bool wantsTooltip: !inPopup && mainMouse.containsMouse && !closeMouse.containsMouse
+    && !taskbar.dragging && !showsPreview() && !titleFullyVisible
+  onWantsTooltipChanged: {
+    if (!taskbar.host) return
+    if (wantsTooltip) taskbar.host.showTooltip(button, minimized ? title + " (minimized)" : title)
+    else taskbar.host.hideTooltip(button)
+  }
+
   // The window can close (or move away) under the pointer or mid-drag; don't
   // leave a tooltip, a hover highlight or a drag behind.
   Component.onDestruction: {
@@ -156,7 +169,6 @@ Item {
       taskbar.activate(button.toplevel)
       if (button.inPopup) taskbar.close()
     }
-    onEntered: if (taskbar.bar && !button.inPopup && !button.showsPreview()) taskbar.host.showTooltip(button, button.minimized ? button.title + " (minimized)" : button.title)
     onExited: {
       button.previewSuppressed = false
       if (taskbar.host) taskbar.host.hideTooltip(button)
@@ -180,6 +192,7 @@ Item {
   }
 
   Text {
+    id: titleText
     anchors.left: icon.right
     anchors.leftMargin: button.pad
     anchors.right: closeArea.left

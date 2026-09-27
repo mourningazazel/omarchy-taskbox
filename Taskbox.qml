@@ -771,7 +771,9 @@ BarWidget {
           icon: iconFor(t),
           minimized: isMinimized(t),
           active: !!t.activated,
-          shown: shownWindows.indexOf(t) !== -1
+          shown: shownWindows.indexOf(t) !== -1,
+          // Title readable in full on the button (no tooltip needed); null in +N.
+          titleVisible: (function() { var b = buttonFor(t); return b ? b.titleFullyVisible : null })()
         }
       })
     }

@@ -170,6 +170,22 @@ check "newest on the right (opening order)" test \
   "$(jq -r --argjson n "$BASE" '[.windows[$n:][] | .address] | join(" ")' <<<"$S")" = "$(printf '%s\n' "${P[@]}" | tr '\n' ' ' | sed 's/ $//')"
 check "sizes fit the available space" test "$(jq '(.fitCount * .buttonExtent + ([.fitCount - 1, 0] | max) * 4) <= .available' <<<"$S")" = true
 
+section "tooltips only when the title is cut off"
+LONG="taskbox-probe-with-a-title-far-too-long-for-any-taskbar-button-to-show-in-full"
+launch_hidden special:taskboxprobe "foot -a $PROBE -T $LONG sleep 900"
+wait_for 10 '[[ -n $(hyprctl clients -j | jq -r --arg t "$LONG" ".[] | select(.title == \$t) | .address") ]]'
+L=$(hyprctl clients -j | jq -r --arg t "$LONG" '.[] | select(.title == $t) | .address')
+park "$L"
+wait_for 5 '[[ $(here | jq --arg a "$L" "any(.windows[]; .address == \$a)") == true ]]'
+sleep 0.5   # layout
+check "a short title that fits needs no tooltip" test "$(here | jq --arg a "${P[0]}" '.windows[] | select(.address == $a) | .titleVisible')" = true
+check "a truncated title gets one" test "$(here | jq --arg a "$L" '.windows[] | select(.address == $a) | .titleVisible')" = false
+omarchy bar set "$ID" showTitle false --json >/dev/null
+check "with titles off, every button gets one" wait_for 5 '[[ $(here | jq "[.windows[] | select(.shown) | .titleVisible] | any") == false ]]'
+omarchy bar set "$ID" showTitle "$(jq -r '.showTitle // true' <<<"$ORIG_ENTRY")" --json >/dev/null
+lua "hl.dsp.window.close({ window = \"address:$L\" })"
+wait_for 5 '[[ $(here | jq --arg a "$L" "any(.windows[]; .address == \$a)") == false ]]'
+
 section "minimize conventions of other plugins"
 spawn_probes 1
 Q=$(comm -13 <(printf '%s\n' "${P[@]}" | sort) <(probes | sort) | head -1)
@@ -263,9 +279,9 @@ check "a menu opening hides it" wait_for 2 '[[ $(pv | jq .shown) == false ]]'
 ipc closePopups >/dev/null
 ACTIVE=$(here | jq -r '[.windows[] | select(.minimized | not)][0].address // empty')
 if [[ -n $ACTIVE ]]; then
-  check "a window that isn't minimized gets the usual tooltip instead" test "$(ipc preview "$ACTIVE")" = "no preview for this window"
+  check "a window that isn't minimized gets no preview" test "$(ipc preview "$ACTIVE")" = "no preview for this window"
 else
-  skip "a window that isn't minimized gets the usual tooltip instead" "no regular window on this workspace"
+  skip "a window that isn't minimized gets no preview" "no regular window on this workspace"
 fi
 ipc previewFailure true >/dev/null
 sleep 3.2; ipc preview "${P[0]}" >/dev/null
