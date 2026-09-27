@@ -1,6 +1,6 @@
 # Taskbox
 
-A Windows-style taskbar for the [Omarchy](https://omarchy.org) bar: a button
+Workspace-specific task tabs on [Omarchy](https://omarchy.org) bar: a button
 for every window on the current workspace, with its icon, title and a close
 button.
 
