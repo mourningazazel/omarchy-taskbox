@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.0 — 2026-09-26
+
+- Hover previews: resting the pointer on a minimized window's button shows
+  a small thumbnail of the window under it (beside it on a vertical bar),
+  200 px wide and at most 120 px tall, without the title the button already
+  shows. Setting *Hover previews*:
+  `minimized` (default), `all` or `off`.
+- Previews are taken by `grim` in a separate process (part of Omarchy's base
+  install), so they work the same on any GPU, driver or Qt renderer, and a
+  failed capture only shows the app icon instead. A window is captured at
+  most once every 3 seconds; pictures stay in `$XDG_RUNTIME_DIR` (private,
+  in memory) and are deleted when the window closes.
+- Tooltips only when they add something: a button shows its window's title
+  in a tooltip only if the title is cut off or hidden (narrow buttons, titles
+  off, vertical bar) and no preview is shown. Otherwise the window's hover
+  highlight is the cue. (They also show again on Omarchy builds whose bar
+  requires widgets to report `tooltipHovered`.)
+- The preview card shows the title too when the button can't show all of it.
+
 ## 1.1.1 — 2026-09-26
 
 - The settings popup has a close button, closes with Esc (the first Esc

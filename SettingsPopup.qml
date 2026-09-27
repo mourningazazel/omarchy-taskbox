@@ -205,6 +205,12 @@ KeyboardPanel {
       checked: popup.taskbar.showMinimized
       onToggled: popup.taskbar.saveSetting("showMinimized", !popup.taskbar.showMinimized)
     }
+    ChoiceRow {
+      label: "Hover previews"
+      options: ["minimized", "all", "off"]
+      value: popup.taskbar.previewMode
+      onChosen: function(v) { popup.taskbar.saveSetting("preview", v) }
+    }
 
     // Custom highlight colour: hex entry + a button opening the colour picker.
     Item {

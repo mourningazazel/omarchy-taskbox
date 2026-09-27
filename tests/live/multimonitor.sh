@@ -65,11 +65,12 @@ timeout 600 socat -u UNIX-CONNECT:"$SOCK" - >"$EVENTS" 2>/dev/null &
 WATCH=$!
 
 cleanup() {
-  ipc hover "" >/dev/null 2>&1; ipc closePopups >/dev/null 2>&1
+  ipc hover "" >/dev/null 2>&1; ipc preview "" >/dev/null 2>&1; ipc closePopups >/dev/null 2>&1
   for a in $(probes); do lua "hl.dsp.window.close({ window = \"address:$a\" })"; done
   hyprctl monitors -j | jq -e --arg m "$OUT" 'any(.[]; .name == $m)' >/dev/null && hyprctl output remove "$OUT" >/dev/null
   omarchy bar set "$ID" minWidth "$(jq -r '.minWidth // 44' <<<"$ORIG_ENTRY")" --json >/dev/null 2>&1
   omarchy bar set "$ID" emulateFacade "$(jq -r '.emulateFacade // false' <<<"$ORIG_ENTRY")" --json >/dev/null 2>&1
+  omarchy bar set "$ID" preview "$(jq -r '.preview // "minimized"' <<<"$ORIG_ENTRY")" >/dev/null 2>&1
   focus_ws "$START_WS"
   kill "$WATCH" 2>/dev/null; rm -f "$EVENTS"
 }
@@ -131,6 +132,16 @@ ipc menu "${P[1]}" >/dev/null
 check "its menu opens on that monitor's bar only" wait_for 3 '[[ $(on "$OUT" | jq -r .popup) == menu && $(on "$MAIN" | jq -r .popup) == "" ]]'
 ipc closePopups >/dev/null
 
+section "hover previews are per monitor"
+# "all": the probes here aren't minimized. (Captures only ever touch probes.)
+omarchy bar set "$ID" preview all >/dev/null
+wait_for 5 '[[ $(state | jq "all(.[]; .preview.mode == \"all\")") == true ]]'
+check "a window on the other monitor gets a preview" test "$(ipc preview "${P[1]}")" = ok
+check "…on that monitor's bar only" wait_for 3 '[[ $(on "$OUT" | jq ".preview.shown and .preview.image") == true && $(on "$MAIN" | jq .preview.shown) == false ]]'
+check "…sized for that monitor (dpr $(on "$OUT" | jq .preview.dpr))" test "$(on "$OUT" | jq '.preview.size[0] >= 200 and .preview.size[0] <= 240')" = true
+ipc preview "" >/dev/null
+check "…and hides" wait_for 2 '[[ $(on "$OUT" | jq .preview.shown) == false ]]'
+
 section "minimize and restore stay on their monitor"
 act minimize "${P[2]}" minimized
 check "minimizing tags the other monitor's workspace ($WSB)" wait_for 3 '[[ $(tags "${P[2]}") == "[\"taskbox-from-$WSB\"]" ]]'
@@ -180,7 +191,19 @@ for sc in 1 1.25 1.5 2; do
     S=$(on "$OUT")
     check "scale $sc: bar is $want px, buttons fit ($(jq .fitCount <<<"$S")×$(jq .buttonExtent <<<"$S") in $(jq .available <<<"$S"))" \
       test "$(jq --argjson p "$(printf '%s\n' "${P[@]}" | jq -R . | jq -s .)" '.available <= .barLength and (.fitCount * .buttonExtent) <= .available and ([.windows[].address] | contains($p))' <<<"$S")" = true
+    # The preview picture is taken at this monitor's pixel density.
+    ipc preview "" >/dev/null; sleep 3.1   # past the 3 s reuse window
+    ipc preview "${P[0]}" >/dev/null
+    if wait_for 3 '[[ $(on "$OUT" | jq ".preview.shown and .preview.image") == true ]]'; then
+      dims=$(file -b "${XDG_RUNTIME_DIR:-/tmp}/taskbox-preview/${P[0]#0x}.png" | grep -oE '[0-9]+ x [0-9]+')
+      check "scale $sc: preview picture $dims px fits a 200x120 box at ${sc}x" \
+        awk -v d="$dims" -v s="$sc" 'BEGIN { split(d, a, " x "); w = a[1]; h = a[2]
+          exit !(w <= 200 * s + 1 && h <= 120 * s + 1 && (w >= 200 * s - 3 || h >= 120 * s - 3)) }'
+    else
+      bad "scale $sc: preview shown" "$(on "$OUT" | jq -c .preview)"
+    fi
     [[ -n $SHOTS ]] && grim -o "$OUT" "$SHOTS/scale-$sc.png"
+    ipc preview "" >/dev/null
   else
     bad "scale $sc: bar resized to $want px" "barLength $(on "$OUT" | jq .barLength)"
   fi
@@ -194,6 +217,7 @@ omarchy bar set "$ID" minWidth "$(jq -r '.minWidth // 44' <<<"$ORIG_ENTRY")" --j
 
 section "unplugging and replugging"
 ipc hover "${P[0]}" >/dev/null
+ipc preview "${P[0]}" >/dev/null   # unplug with a preview open on it
 wait_for 3 '[[ $(tags "${P[0]}") == "[\"taskbox-hover\"]" ]]'
 hyprctl output remove "$OUT" >/dev/null
 check "its Taskbox goes away with it" wait_for 8 '[[ $(state | jq length) -eq 1 ]]'

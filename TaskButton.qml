@@ -35,11 +35,37 @@ Item {
 
   readonly property color markColor: urgent ? taskbar.urgentColor : taskbar.accent
 
+  // The bar only keeps a tooltip up while its target reports this.
+  readonly property bool tooltipHovered: mainMouse.containsMouse
+
   onHoveredChanged: taskbar.setHover(toplevel, hovered)
+
+  // Hover preview (WindowPreview.qml): while resting on the button itself,
+  // not its ×, and not pressed or dragging. It replaces the tooltip. After a
+  // click it stays away until the pointer leaves the button (as on Windows).
+  property bool previewSuppressed: false
+  readonly property bool previewWanted: !inPopup && !previewSuppressed && mainMouse.containsMouse
+    && !closeMouse.containsMouse && !mainMouse.pressed && !taskbar.dragging
+  onPreviewWantedChanged: taskbar.preview.hover(button, toplevel, previewWanted)
+  function showsPreview() { return !inPopup && taskbar.preview.eligible(toplevel) }
+
+  // The whole title is readable on the button itself (not hidden, not cut
+  // off). Re-evaluated while hovering: an on-hover × narrows the title.
+  readonly property bool titleFullyVisible: titleShown && !titleText.truncated
+  // Tooltip only when it adds something: no preview card, and the title is
+  // hidden or truncated. Otherwise the window's hover highlight is the cue.
+  readonly property bool wantsTooltip: !inPopup && mainMouse.containsMouse && !closeMouse.containsMouse
+    && !taskbar.dragging && !showsPreview() && !titleFullyVisible
+  onWantsTooltipChanged: {
+    if (!taskbar.host) return
+    if (wantsTooltip) taskbar.host.showTooltip(button, minimized ? title + " (minimized)" : title)
+    else taskbar.host.hideTooltip(button)
+  }
 
   // The window can close (or move away) under the pointer or mid-drag; don't
   // leave a tooltip, a hover highlight or a drag behind.
   Component.onDestruction: {
+    if (previewWanted) taskbar.preview.hover(button, toplevel, false)
     if (hovered) {
       taskbar.setHover(toplevel, false)
       if (taskbar.host) {
@@ -99,6 +125,7 @@ Item {
     property string dragMode: ""
 
     onPressed: function(mouse) {
+      button.previewSuppressed = true
       pressPoint = Qt.point(mouse.x, mouse.y)
       pressScene = mapToItem(null, mouse.x, mouse.y)
       dragged = false
@@ -142,8 +169,10 @@ Item {
       taskbar.activate(button.toplevel)
       if (button.inPopup) taskbar.close()
     }
-    onEntered: if (taskbar.bar && !button.inPopup) taskbar.host.showTooltip(button, button.minimized ? button.title + " (minimized)" : button.title)
-    onExited: if (taskbar.host) taskbar.host.hideTooltip(button)
+    onExited: {
+      button.previewSuppressed = false
+      if (taskbar.host) taskbar.host.hideTooltip(button)
+    }
   }
 
   Image {
@@ -163,6 +192,7 @@ Item {
   }
 
   Text {
+    id: titleText
     anchors.left: icon.right
     anchors.leftMargin: button.pad
     anchors.right: closeArea.left
@@ -186,6 +216,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     width: button.closeShown ? button.closeSize : 0
     height: button.closeSize
+    readonly property bool tooltipHovered: closeMouse.containsMouse
 
     Rectangle {
       anchors.fill: parent

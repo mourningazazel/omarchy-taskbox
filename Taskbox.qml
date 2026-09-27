@@ -40,6 +40,7 @@ BarWidget {
   readonly property bool clickToMinimize: config.clickToMinimize
   readonly property bool showMinimized: config.showMinimized
   readonly property string minimizeWorkspace: config.minimizeWorkspace
+  readonly property string previewMode: config.preview
 
   // Custom highlight: the tint behind buttons (TaskButton keeps its usual
   // transparency levels). previewHighlight shows a choice instantly while the
@@ -278,6 +279,12 @@ BarWidget {
     if (reorderBlocked) setReorderBlocked(false)
     hypr.shutdown(moduleName)
   }
+
+  // ------------------------------------------------------------ hover preview
+  // Thumbnail of a window while the pointer rests on its button (minimized
+  // windows by default); see WindowPreview.qml.
+  WindowPreview { id: windowPreview; taskbar: root }
+  readonly property alias preview: windowPreview
 
   // ------------------------------------------------------------ bar reorder guard
   // The bar lays a press-grabbing MouseArea over every module slot so widgets
@@ -655,7 +662,10 @@ BarWidget {
   readonly property bool opened: popup === "settings"
   // The colour picker card inside the settings popup.
   property bool pickerOpen: false
-  onPopupChanged: if (popup !== "settings") pickerOpen = false
+  onPopupChanged: {
+    if (popup !== "settings") pickerOpen = false
+    if (popup !== "") windowPreview.hide()
+  }
 
   // Owner for the bar's one-popup-at-a-time coordination. Deliberately not
   // the widget itself: the bar draws an "open" marker under the owning
@@ -752,6 +762,7 @@ BarWidget {
       highlight: effectiveHighlight,
       highlightSuggestions: highlightSuggestions,
       pickerOpen: pickerOpen,
+      preview: windowPreview.snapshot(),
       windows: windows.map(function(t) {
         return {
           address: hexAddress(t),
@@ -760,7 +771,9 @@ BarWidget {
           icon: iconFor(t),
           minimized: isMinimized(t),
           active: !!t.activated,
-          shown: shownWindows.indexOf(t) !== -1
+          shown: shownWindows.indexOf(t) !== -1,
+          // Title readable in full on the button (no tooltip needed); null in +N.
+          titleVisible: (function() { var b = buttonFor(t); return b ? b.titleFullyVisible : null })()
         }
       })
     }
@@ -847,6 +860,24 @@ BarWidget {
       if (!hit) return "not on a taskbar"
       hit.widget.setHover(hit.toplevel, true)
       return "ok"
+    }
+
+    // Rest the pointer on a window's button, for its hover preview ("" hides
+    // them). Answers whether that window gets one.
+    function preview(address: string): string {
+      root.instances().forEach(function(w) { w.preview.hide() })
+      if (!address) return "hidden"
+      var hit = root.instanceShowing(address)
+      if (!hit) return "not on a taskbar"
+      var button = hit.widget.buttonFor(hit.toplevel)
+      if (!button) return "not shown (in +N)"
+      return hit.widget.preview.hover(button, hit.toplevel, true) ? "ok" : "no preview for this window"
+    }
+
+    // Tests: make captures fail, to check the preview's icon fallback.
+    function previewFailure(on: bool): string {
+      root.instances().forEach(function(w) { w.preview.simulateFailure = on })
+      return String(on)
     }
 
     // Left-click a window's button, as the user would (restore / minimize /
