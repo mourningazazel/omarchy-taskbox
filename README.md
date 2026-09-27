@@ -2,31 +2,12 @@
 
 A Windows-style taskbar for the [Omarchy](https://omarchy.org) bar: a button
 for every window on the current workspace, with its icon, title and a close
-button, plus minimize, drag-to-workspace and a right-click window menu.
+button.
 
-**Omarchy 4.0+** · bar-widget plugin · MIT
+Minimize and restore, drag a window to another workspace, peek at a
+minimized window, and force-kill a stuck app — all from the bar.
 
 <!-- screenshot to come: ![Taskbox in the Omarchy bar, with a window's right-click menu open](docs/screenshot.png) -->
-
-## Features
-
-- **Fits the bar.** Buttons follow your theme and font and share the free
-  space: they start at a default width, shrink as windows open, and extra
-  windows go into a `+N` list. Any resolution, every monitor (each bar shows
-  its own monitor's workspace).
-- **Windows ordering.** Oldest window on the left, newest on the right; the
-  taskbar hugs the right-hand widgets and grows toward the left.
-- **Close or force kill** from the `×` (hold **Alt** to force kill).
-- **Hover to find a window.** Its border lights up without stealing focus,
-  and a minimized window shows a small preview under its button.
-- **Drag to a workspace.** Drop a button on a workspace number to send the
-  window there without following it.
-- **Minimize and restore**, with minimized windows kept (dimmed) on the
-  taskbar.
-- **Right-click menu** and a built-in **settings popup**.
-- **Vertical bars** get a column of icon-only buttons.
-- **No setup.** The plugin loads its Hyprland side itself; your Hyprland
-  config is never edited.
 
 ## Install
 
@@ -35,98 +16,54 @@ omarchy plugin add https://github.com/mourningazazel/omarchy-taskbox.git --enabl
 omarchy bar move mourningazazel.taskbox --section right --index 0
 ```
 
-The second line puts it at the start of the right section, where it's designed
-to sit. That's all.
-
-- **Update:** `omarchy plugin update mourningazazel.taskbox`
-- **Remove:** `omarchy plugin remove mourningazazel.taskbox`. Taskbox then
-  has Hyprland reload its config once, which clears everything it added.
-
-On an older Omarchy without Hyprland's Lua config, Taskbox still lists,
-focuses and closes windows; the extras switch themselves off.
+The second line puts it at the start of the right section, where it's
+designed to sit. Needs Omarchy 4.0+. Nothing else to set up: Taskbox loads
+its Hyprland side itself and never edits your Hyprland config.
 
 ## Using it
 
-| Action | Result |
+| Input | What it does |
 |---|---|
-| Click | Focus the window (your cursor stays where it is) |
-| Click the focused window | Minimize it (can be turned off) |
-| Click a minimized (dimmed) window | Restore it onto this workspace |
-| Middle-click | Close the window |
-| Hover | Light up that window's border, without focusing it (plus the full title in a tooltip if the button cuts it off) |
-| Rest on a minimized window | A thumbnail of it appears under the button |
-| `×` | Close the window (the app may ask to save) |
-| **Alt** + `×` | Force kill the app (the `×` turns red while Alt is held) |
-| Right-click | Window menu: minimize/restore, maximize, float/tile, move to workspace, close, force kill, settings |
-| Drag onto a workspace number | Send the window there without following it |
-| **Alt** + drag | Move the whole taskbar elsewhere in the bar |
+| **Click** | Focus the window (the cursor stays where it is) |
+| **Click** the focused window | Minimize it (can be turned off) |
+| **Click** a minimized (dimmed) window | Restore it onto this workspace |
+| **Middle-click** | Close the window |
+| **Hover** | Light up the window's border, without focusing it |
+| **Rest** on a minimized window | A small preview of it under the button |
+| **×** | Close the window (the app may ask to save) |
+| **Alt + ×** | Force kill the app (the × turns red while Alt is held) |
+| **Right-click** | Minimize / restore, maximize, float / tile, move to workspace, close, force kill, settings |
+| **Drag** onto a workspace number | Send the window there without following it |
+| **Alt + drag** | Move the whole taskbar elsewhere in the bar |
 
-**Sending a window to another workspace** (drag, or *Move to workspace* in the
-menu): you stay where you are and the window leaves quietly. It never arrives
-fullscreen or maximized. It tiles in if that workspace has tiled windows,
-floats if it only has floating ones, and anything maximized there is restored,
-so nothing ends up hidden. The next time you open that workspace, the window
-you sent is the focused one.
-
-**Minimizing** parks the window on the special workspace `minimized`, the one
-a hyprbars "minimize" button typically uses. Windows minimized by other tools
-show up dimmed and restorable too (`minimized`: hyprbars, omadock;
-`omarchy-minimized`: window-shelf, qol-desktop-plus). Taskbox remembers the
-workspace each one came from on the window itself, so it survives restarts.
-
-**Hover previews** are small pictures (200 px wide, at most 120 px tall)
-taken by `grim` (part of Omarchy's base install) when the pointer rests on a
-button, at most once every 3 seconds per window. Only minimized windows get
-one by default (`preview`: `minimized`, `all` or `off`). Because the capture
-runs as its own small process and the compositor does the copying, previews
-don't depend on your GPU or drivers. The pictures live in memory under
-`$XDG_RUNTIME_DIR/taskbox-preview` (only you can read them) and are deleted
-when their window closes. An app that hasn't drawn since it was hidden may
-show its last frame until the next refresh.
-
-**Force kill** sends SIGKILL to the app's process, which closes all of that
-app's windows without asking to save. Whether a click on `×` force-kills is
-decided by Hyprland from the real state of the Alt key at that moment, so a
-plain click never kills.
-
-## Multiple monitors
-
-Every monitor's bar has its own Taskbox, showing the windows on *that*
-monitor's current workspace, sized to that bar (different resolutions and
-fractional scaling are fine).
-
-- Clicking a window on another monitor focuses it there; the cursor stays put.
-- A minimized window stays on the taskbar of the monitor (workspace) it came
-  from, and clicking it restores it there. A window that was never on a
-  regular workspace (started minimized) shows on every taskbar.
-- Hover highlights, menus and the `+N` list open on the monitor you're using;
-  settings from the Omarchy menu open on the focused monitor.
-- Unplugging a monitor just removes its taskbar; plugging it back brings it
-  back. Nothing else is disturbed.
-- Drag-to-workspace works with the workspaces widget on the same bar (a drag
-  can't cross to another monitor's bar).
+- **Buttons share the space.** They start at a default width, shrink as
+  windows open, and the rest go into a `+N` list. Oldest window on the left.
+- **A tooltip only when it adds something:** the full title, if the button
+  cuts it off.
+- **Sending a window away** (drag, or the menu): you stay where you are. The
+  window never arrives fullscreen: it tiles in if that workspace has tiled
+  windows, floats if it only has floating ones, and whatever was maximized
+  there is restored. It's the focused one when you next open that workspace.
+- **Minimizing** parks the window on the special workspace `minimized`, like
+  a hyprbars minimize button. Windows minimized by other tools show up too.
+  Each remembers the workspace it came from, even across restarts.
+- **Force kill** sends SIGKILL to the app, closing all its windows without
+  asking. Hyprland checks the real Alt key at the moment of the click, so a
+  plain click never kills.
+- **Vertical bars** get a column of icon-only buttons.
 
 ## Settings
 
-<!-- screenshot to come: ![Taskbox settings popup, with a minimized window shown dimmed on the left](docs/settings.png) -->
-
-Right-click any button → **Taskbox settings…** (close it with `×`, Esc, or
-by clicking anywhere else), or run:
+Right-click any button → **Taskbox settings…** (close with `×`, Esc or a
+click outside), or:
 
 ```bash
 omarchy-shell shell toggle mourningazazel.taskbox
 ```
 
-To add it to the Omarchy menu (Setup → Taskbox), add this line to
-`~/.config/omarchy/extensions/omarchy-menu.jsonc`:
-
-```jsonc
-"setup.taskbox": {"icon":"󰖯","label":"Taskbox","aliases":["taskbar"],"action":"omarchy-shell shell toggle mourningazazel.taskbox '{}'"},
-```
-
-Settings live on the widget's entry in `~/.config/omarchy/shell.json`, and can
-also be changed with `omarchy bar set mourningazazel.taskbox <key> <value> --json`
-(drop `--json` for text values):
+Settings are stored on the widget's entry in `~/.config/omarchy/shell.json`.
+They can also be set with `omarchy bar set mourningazazel.taskbox <key>
+<value> --json` (drop `--json` for text values).
 
 | Key | Default | |
 |---|---|---|
@@ -138,74 +75,100 @@ also be changed with `omarchy bar set mourningazazel.taskbox <key> <value> --jso
 | `clickToMinimize` | `true` | Clicking the focused window minimizes it |
 | `showMinimized` | `true` | Keep minimized windows on the taskbar (dimmed) |
 | `minimizeWorkspace` | `"minimized"` | Special workspace minimized windows are parked on |
-| `highlightColor` | `""` | Custom button highlight, `#rrggbb` (empty = the theme's default). Set it in the settings popup with the colour picker, which also suggests five colours that complement your theme's accent |
-| `preview` | `"minimized"` | Hover thumbnail of a window: `minimized` (minimized windows), `all` or `off` |
+| `highlightColor` | `""` | Button highlight, `#rrggbb` (empty = the theme's). The settings popup has a colour picker with five colours that complement your theme's accent |
+| `preview` | `"minimized"` | Hover previews: `minimized` windows, `all` or `off` |
 
-## Compatibility
+To add Taskbox to the Omarchy menu (Setup → Taskbox), add this line to
+`~/.config/omarchy/extensions/omarchy-menu.jsonc`:
 
-- **Omarchy 4.0+.** Built for the restricted plugin API third-party widgets get
-  from Omarchy 4.0.4 on, tested on 4.0.3 and in a 4.0.4-API emulation, and
-  checked against Omarchy's development branch.
-- **Hyprland 0.56** (Lua config), checked against the changes queued after it.
+```jsonc
+"setup.taskbox": {"icon":"󰖯","label":"Taskbox","aliases":["taskbar"],"action":"omarchy-shell shell toggle mourningazazel.taskbox '{}'"},
+```
 
-Works alongside (checked against their source):
+## Previews
 
-| Plugins | How they fit together |
+Resting the pointer on a minimized window's button shows a small picture of
+it (200 px wide, at most 120 px tall) after a moment. The picture is taken by
+`grim`, which comes with Omarchy, as a separate little process: the
+compositor copies the window the same way a screenshot does, so previews
+don't depend on your GPU or drivers, and a failed capture just shows the app
+icon. A window is captured at most once every 3 seconds, and not while it's
+still animating into place.
+
+The pictures are kept in memory, in `$XDG_RUNTIME_DIR/taskbox-preview`
+(readable only by you), and deleted when their window closes. An app that
+hasn't redrawn since it was hidden shows its last frame until the next
+refresh.
+
+## Multiple monitors
+
+Every monitor's bar gets its own Taskbox, showing that monitor's workspace,
+sized to that bar (any resolution or scale).
+
+- Clicking a window on another monitor focuses it there, without moving the
+  cursor.
+- A minimized window stays on the taskbar it came from and is restored there.
+  One that was never on a regular workspace shows on every taskbar.
+- Previews, menus and the `+N` list open on the monitor you're using;
+  settings from the Omarchy menu open on the focused one.
+- Unplugging a monitor removes its taskbar; plugging it back brings it back.
+- Drag-to-workspace works with the workspaces widget on the same bar.
+
+## Works with
+
+| Plugins | Together |
 |---|---|
-| Omarchy's workspaces widget and clones, decent-workspaces, saif/sofos/woogy7 workspaces, workspaces-jap, **per-monitor-workspaces** | Their numbers are drop targets. Taskbox sends to the real workspace behind a button, so per-monitor and named workspaces land where you'd expect. |
-| hyprbars minimize, omadock, window-shelf, qol-desktop-plus | Windows they minimize show dimmed on Taskbox and restore from it. To have Taskbox minimize to the same place as window-shelf/qol-desktop-plus, set `minimizeWorkspace` to `omarchy-minimized`. |
-| Alt+Tab switchers (altswitch, omalt-tab, omaswitch, alttab, macos.dock) | Both keep working: Hyprland runs every matching Alt bind, and Taskbox's never swallow Alt. |
-| Replacement bars (Lacuna, Shibumi) | Taskbox runs in them; sizing and drag use the bar's own slots. |
-| Trays and drawers that host other widgets (tyrichards.tray, plugin-drawer, pocket) | Taskbox can live inside them; it sizes itself naturally there. |
-| Docks, overviews, notification and other widgets | Independent. |
+| Omarchy's workspaces widget and clones, decent-workspaces, saif / sofos / woogy7 workspaces, workspaces-jap, per-monitor-workspaces | Their numbers are drop targets, and a drop lands on the real workspace behind the number. |
+| hyprbars minimize, omadock, window-shelf, qol-desktop-plus | Windows they minimize show on Taskbox, dimmed and restorable. Set `minimizeWorkspace` to `omarchy-minimized` to minimize to the same place as window-shelf / qol-desktop-plus. |
+| Alt+Tab switchers (altswitch, omalt-tab, omaswitch, alttab, macos.dock) | Both keep working: Taskbox's Alt binds never swallow Alt. |
+| Replacement bars (Lacuna, Shibumi), trays and drawers (tyrichards.tray, plugin-drawer, pocket) | Taskbox runs inside them and sizes itself to fit. |
 
-## Known limitations
+## Update and remove
 
-- **Omarchy updates.** Taskbox relies on some internals of Omarchy's bar. It
-  checks for them at startup: if an update removes one, only the affected
-  feature switches off, and the settings popup lists what's unavailable.
-  Please open an issue with that list if it happens.
-- An app's *own* minimize button (inside the window) isn't handled: Hyprland
-  doesn't act on those requests without a native plugin.
-- **Windows minimized before Taskbox was installed** don't have a remembered
-  workspace yet, so they show on every workspace's taskbar until restored.
-- **Drag targets** are the buttons of a workspaces widget on the same bar.
-  The menu's *Move to workspace* lists 1–10 plus any other workspace that
-  exists, by number.
+```bash
+omarchy plugin update mourningazazel.taskbox
+omarchy plugin remove mourningazazel.taskbox
+```
+
+Removing Taskbox makes Hyprland reload its config once, which clears
+everything Taskbox added, and deletes the preview pictures.
 
 ## Troubleshooting
 
-- **Something listed as unavailable in the settings popup:** see
-  [Known limitations](#known-limitations); `omarchy restart shell` rules out
-  a one-off load failure.
-- **The right-click menu only has Close and settings, and drag/hover/Alt do nothing:** Taskbox
-  couldn't load its Hyprland side. Check you're on Omarchy 4.0+, then run
-  `omarchy restart shell`.
-- **Alt+× closes normally instead of force-killing:** check the binds with
+- **The settings popup lists something as unavailable:** an Omarchy update
+  changed something Taskbox relies on; only that feature is switched off.
+  Try `omarchy restart shell`, and if it stays, open an issue with the list.
+- **The menu only has Close and settings; drag, hover and Alt do nothing:**
+  Taskbox couldn't load its Hyprland side. It needs Omarchy 4.0+ (Hyprland's
+  Lua config). Try `omarchy restart shell`.
+- **Alt + × closes instead of force-killing:** check the binds with
   `hyprctl binds | grep -A3 Alt_L`; if they're missing, `omarchy restart shell`.
-- **A preview shows only the app icon:** the capture failed. Check `grim -h`
-  lists `-T` (grim 1.5+) and that `hyprctl clients -j` shows a `stableId`
-  (recent Hyprland); `journalctl --user -b | grep "preview capture"` shows
-  the exit code (3 = window not found, 4 = grim failed).
-- **Wrong or generic icon for an app:** run
-  `omarchy-shell mourningazazel.taskbox icon <app id>` (the app id is in
-  `omarchy-shell mourningazazel.taskbox state`) and include the output in an
-  issue.
+- **A preview shows only the app icon:** the capture failed.
+  `journalctl --user -b | grep "preview capture"` says why. It needs grim 1.5+
+  (`grim -h` lists `-T`) and a Hyprland whose `hyprctl clients -j` has a
+  `stableId`.
+- **Wrong or generic icon:** `omarchy-shell mourningazazel.taskbox icon <app id>`
+  (the app id is in `omarchy-shell mourningazazel.taskbox state`) shows how it
+  was looked up; include it in an issue.
 - **Anything else:** include the output of
   `omarchy-shell mourningazazel.taskbox state` and
-  `journalctl --user -b | grep -iE 'taskbox|\.qml:'` in an issue.
+  `journalctl --user -b | grep -iE 'taskbox|\.qml:'`.
+
+Known limits: an app's *own* minimize button (inside its window) isn't
+handled, as Hyprland ignores those requests. Windows minimized before
+Taskbox was installed show on every taskbar until restored once.
 
 ## Contributing
 
-Issues and pull requests are welcome. [AGENTS.md](AGENTS.md) documents the
-architecture, the Omarchy internals Taskbox depends on, safety rules for
-testing against a live Hyprland session, the test suites and a diagnosis
-table (written for AI coding agents, useful for humans too).
+Issues and pull requests are welcome. [AGENTS.md](AGENTS.md) explains the
+architecture, the Omarchy internals Taskbox depends on, how to test safely
+against a live desktop, and how to diagnose problems. It's written for AI
+coding agents and just as useful for people.
 
 ```bash
-tools/dev.sh test               # offline checks (also run by CI)
-tools/dev.sh test live          # against your running desktop, using throwaway windows
-tools/dev.sh test live --full   # + reload/restart/disable recovery, stress, left bar
+tools/dev.sh test          # offline checks (also run by CI)
+tools/dev.sh test load     # the widget in an isolated Quickshell
+tools/dev.sh test live     # against your running desktop, with throwaway windows
 ```
 
 ## License

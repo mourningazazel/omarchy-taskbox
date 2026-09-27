@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.2.1 — 2026-09-26
+
+- Previews no longer risk a "Process crashed: grim" notification. grim 1.5.0
+  crashes when a window resizes or closes during a capture, so a window is
+  left alone for a second after it opens, moves or changes floating state,
+  closing / force-killing from Taskbox waits for a capture of that window to
+  finish, and grim gets 3 seconds before it's stopped.
+- A preview card appears once its picture is in (or after a second, with the
+  app icon), instead of changing size when the picture lands, and doesn't
+  vanish and come back while its first picture loads. A refresh swaps the
+  new picture in without a blink; a failed refresh keeps the last picture. On a bottom bar the card stays
+  attached to the button when its height changes.
+- Settings with the wrong JSON type (e.g. `"minWidth": []`) fall back to the
+  default instead of the minimum, and a bar that hasn't been measured yet no
+  longer breaks the button layout.
+- Code: icon lookup and the IPC functions moved out of `Taskbox.qml` into
+  `AppIcons.qml` and `TaskboxIpc.qml`. New `tools/dev.sh test load`: the
+  widget in an isolated Quickshell, with odd titles, a retitle storm and
+  preview timing.
+- README reorganised and shortened.
+
 ## 1.2.0 — 2026-09-26
 
 - Hover previews: resting the pointer on a minimized window's button shows

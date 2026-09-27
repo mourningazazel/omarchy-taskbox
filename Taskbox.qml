@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Hyprland
 import qs.Commons
 import qs.Ui
@@ -473,16 +472,16 @@ BarWidget {
 
   // Graceful close asks the app to close (it may prompt to save). Force kill
   // SIGKILLs the owning process, which takes every window of that app with it.
+  // Both wait for a preview capture of that window to finish first (see
+  // WindowPreview.afterCapture).
   function closeWindow(t, force) {
     if (!t) return
-    if (force && integrated) {
-      hypr.clearAlt()
-      call("kill", [hexAddress(t)])
-    } else if (t.wayland) {
-      t.wayland.close()
-    } else {
-      call("close", [hexAddress(t)])
-    }
+    if (force && integrated) hypr.clearAlt()
+    windowPreview.afterCapture(t, function() {
+      if (force && integrated) call("kill", [hexAddress(t)])
+      else if (t.wayland) t.wayland.close()
+      else call("close", [hexAddress(t)])
+    })
   }
 
   // The ×: Hyprland decides from the real Alt key state at click time
@@ -490,93 +489,18 @@ BarWidget {
   // a SIGKILL. Without the Hyprland side it's always a graceful close.
   function closeFromButton(t) {
     if (!t) return
-    if (integrated) {
-      hypr.clearAlt()
-      call("close_or_kill", [hexAddress(t)])
-    } else {
-      closeWindow(t, false)
-    }
+    if (!integrated) { closeWindow(t, false); return }
+    hypr.clearAlt()
+    windowPreview.afterCapture(t, function() { call("close_or_kill", [hexAddress(t)]) })
   }
 
   // ------------------------------------------------------------ icons
-  function appIdOf(t) {
-    if (!t) return ""
-    if (t.wayland && t.wayland.appId) return t.wayland.appId
-    var ipc = t.lastIpcObject
-    return ipc && ipc["class"] ? ipc["class"] : ""
-  }
-
-  // Resolved icons per app id, and web-app icons per host (Omarchy web apps
-  // have no StartupWMClass, so they're matched by the URL in their Exec
-  // line). Both are rebuilt when the installed apps change.
-  // Caches live in a plain object mutated in place: iconFor() runs inside
-  // bindings, and assigning a property there would re-trigger them (a
-  // binding loop). _iconRev is bumped only from outside, to invalidate.
-  property int _iconRev: 0
-  readonly property var _icons: ({ cache: {}, web: null })
-
-  Connections {
-    target: DesktopEntries.applications
-    function onValuesChanged() {
-      root._icons.cache = {}
-      root._icons.web = null
-      root._iconRev++
-    }
-  }
-
-  function resolveIcon(name) {
-    if (!name) return ""
-    if (name.charAt(0) === "/") return "file://" + name
-    return Quickshell.iconPath(name, true) || ""
-  }
-
-  function webIcon(host) {
-    if (!_icons.web) {
-      var map = {}
-      var apps = DesktopEntries.applications.values
-      for (var i = 0; i < apps.length; i++) {
-        var h = Logic.urlHost(apps[i].execString)
-        if (h && apps[i].icon && map[h] === undefined) map[h] = apps[i].icon
-      }
-      _icons.web = map
-    }
-    return resolveIcon(_icons.web[host] || "")
-  }
-
-  // Resolve an app's icon: web-app host match, then desktop entries for each
-  // candidate name, then the icon theme directly. Returns how it was found,
-  // for the `icon` IPC call.
-  function lookupIcon(id, initial) {
-    var host = Logic.webAppHost(id)
-    if (host) {
-      var web = webIcon(host)
-      if (web) return { path: web, via: "web app host " + host }
-    }
-    var candidates = Logic.iconCandidates(id, initial)
-    for (var i = 0; i < candidates.length; i++) {
-      var entry = DesktopEntries.heuristicLookup(candidates[i])
-      var fromEntry = entry && entry.icon ? resolveIcon(entry.icon) : ""
-      if (fromEntry) return { path: fromEntry, via: "desktop entry " + entry.id + " for " + candidates[i] }
-    }
-    for (var j = 0; j < candidates.length; j++) {
-      var themed = resolveIcon(candidates[j])
-      if (themed) return { path: themed, via: "icon theme " + candidates[j] }
-    }
-    return { path: Quickshell.iconPath("application-x-executable", true), via: "fallback" }
-  }
-
-  function iconFor(t) {
-    var rev = _iconRev
-    var id = appIdOf(t)
-    var ipc = t ? t.lastIpcObject : null
-    var initial = ipc && ipc.initialClass ? ipc.initialClass : ""
-    var cacheKey = id + "|" + initial
-    if (_icons.cache[cacheKey]) return _icons.cache[cacheKey]
-    var found = lookupIcon(id, initial)
-    // Don't pin a fallback: the app may simply not be indexed yet.
-    if (found.via !== "fallback") _icons.cache[cacheKey] = found.path
-    return found.path
-  }
+  // See AppIcons.qml. appIdOf / iconFor are what the buttons, menu and
+  // preview call.
+  AppIcons { id: appIcons }
+  readonly property alias icons: appIcons
+  function appIdOf(t) { return appIcons.appIdOf(t) }
+  function iconFor(t) { return appIcons.iconFor(t) }
 
   // ------------------------------------------------------------ view
   // ScriptModel diffs the list, so buttons for windows that didn't change
@@ -730,10 +654,8 @@ BarWidget {
   }
 
   // ------------------------------------------------------------ diagnostics
-  // IPC for bug reports, tests and AI agents:
-  //   omarchy-shell mourningazazel.taskbox state
-  // Every instance registers the target (like Omarchy's own widgets); the one
-  // that receives a call answers for all monitors via bar.moduleWidgets().
+  // What `omarchy-shell mourningazazel.taskbox state` reports for this
+  // instance (the IPC functions are in TaskboxIpc.qml).
   function snapshot() {
     return {
       screen: screenRef ? screenRef.name : "",
@@ -796,29 +718,6 @@ BarWidget {
     return seen
   }
 
-  // The instance on the focused monitor (Omarchy's summon picks the same).
-  function focusedInstance() {
-    var list = instances()
-    var focused = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
-    for (var i = 0; i < list.length; i++)
-      if (list[i].screenRef && list[i].screenRef.name === focused) return list[i]
-    return list.length > 0 ? list[0] : root
-  }
-
-  function instances() {
-    return host && typeof host.moduleWidgets === "function" ? host.moduleWidgets(moduleName) : [root]
-  }
-
-  function instanceShowing(address) {
-    var list = instances()
-    var key = Logic.addressKey(address)
-    for (var i = 0; i < list.length; i++) {
-      var w = list[i].windows
-      for (var j = 0; j < w.length; j++) if (list[i].keyOf(w[j]) === key) return { widget: list[i], toplevel: w[j] }
-    }
-    return null
-  }
-
   // Only the first instance registers the target (it answers for every
   // monitor): with one handler per instance, Quickshell warns on every start
   // on multi-monitor setups. Re-evaluated as instances come and go.
@@ -834,101 +733,5 @@ BarWidget {
     return list.length > 0 && list[0] === root
   }
 
-  IpcHandler {
-    target: "mourningazazel.taskbox"
-    enabled: root.ipcPrimary
-
-    // JSON snapshot of every instance (one per monitor).
-    function state(): string {
-      return JSON.stringify(root.instances().map(function(w) { return w.snapshot() }))
-    }
-
-    // Re-run the compatibility self-check; JSON list of unavailable features.
-    function check(): string {
-      var all = []
-      root.instances().forEach(function(w) {
-        w.checkCompat().forEach(function(m) { if (all.indexOf(m) === -1) all.push(m) })
-      })
-      return JSON.stringify(all)
-    }
-
-    // Hover highlight a window as if the pointer were on its button ("" clears).
-    function hover(address: string): string {
-      root.instances().forEach(function(w) { w.clearHover() })
-      if (!address) return "cleared"
-      var hit = root.instanceShowing(address)
-      if (!hit) return "not on a taskbar"
-      hit.widget.setHover(hit.toplevel, true)
-      return "ok"
-    }
-
-    // Rest the pointer on a window's button, for its hover preview ("" hides
-    // them). Answers whether that window gets one.
-    function preview(address: string): string {
-      root.instances().forEach(function(w) { w.preview.hide() })
-      if (!address) return "hidden"
-      var hit = root.instanceShowing(address)
-      if (!hit) return "not on a taskbar"
-      var button = hit.widget.buttonFor(hit.toplevel)
-      if (!button) return "not shown (in +N)"
-      return hit.widget.preview.hover(button, hit.toplevel, true) ? "ok" : "no preview for this window"
-    }
-
-    // Tests: make captures fail, to check the preview's icon fallback.
-    function previewFailure(on: bool): string {
-      root.instances().forEach(function(w) { w.preview.simulateFailure = on })
-      return String(on)
-    }
-
-    // Left-click a window's button, as the user would (restore / minimize /
-    // focus), on the taskbar of the monitor showing it.
-    function click(address: string): string {
-      var hit = root.instanceShowing(address)
-      if (!hit) return "not on a taskbar"
-      hit.widget.activate(hit.toplevel)
-      return "ok"
-    }
-
-    // Open a window's right-click menu.
-    function menu(address: string): string {
-      var hit = root.instanceShowing(address)
-      if (!hit) return "not on a taskbar"
-      hit.widget.openMenu(hit.widget.buttonFor(hit.toplevel), hit.toplevel)
-      return "ok"
-    }
-
-    // Open the overflow list / settings on the focused monitor's taskbar (as
-    // Omarchy's own summon does), or close any popup.
-    function overflow(): string { var w = root.focusedInstance(); w.showPopup("overflow"); return w.popup }
-    function settings(): string { var w = root.focusedInstance(); w.open(); return w.popup }
-    function colorPicker(): string { var w = root.focusedInstance(); w.open(); w.pickerOpen = true; return w.popup }
-    function closePopups(): void { root.instances().forEach(function(w) { w.close() }) }
-
-    // How an app id's icon is resolved (bypasses the cache).
-    function icon(appId: string): string {
-      var apps = DesktopEntries.applications.values
-      var hosts = []
-      for (var i = 0; i < apps.length; i++) {
-        var h = Logic.urlHost(apps[i].execString)
-        if (h) hosts.push(h)
-      }
-      var found = root.lookupIcon(appId, "")
-      return JSON.stringify({
-        appId: appId,
-        webAppHost: Logic.webAppHost(appId),
-        candidates: Logic.iconCandidates(appId, ""),
-        desktopEntries: apps.length,
-        webAppHosts: hosts,
-        result: found
-      })
-    }
-
-    // The workspace targets drag-and-drop would hit along each monitor's bar:
-    // { "<screen>": [{ id, at }, …] }.
-    function dropTargets(): string {
-      var out = {}
-      root.instances().forEach(function(w) { out[w.screenRef ? w.screenRef.name : "?"] = w.sampleDropTargets() })
-      return JSON.stringify(out)
-    }
-  }
+  TaskboxIpc { widget: root }
 }
