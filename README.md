@@ -190,6 +190,7 @@ coding agents and just as useful for people.
 tools/dev.sh test          # offline checks (also run by CI)
 tools/dev.sh test load     # the widget in an isolated Quickshell
 tools/dev.sh test live     # against your running desktop, with throwaway windows
+tools/dev.sh test floating # floating-window stacking and minimize/restore on a headless monitor
 ```
 
 ## License
