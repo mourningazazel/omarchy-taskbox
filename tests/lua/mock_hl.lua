@@ -14,6 +14,7 @@ function M.new()
   local state = {
     windows = {},          -- address -> window
     focused = nil,         -- address
+    stacking = {},         -- bottom to top
     active_workspace = 1,
     config = {
       ["cursor.no_warps"] = false,
@@ -63,6 +64,7 @@ function M.new()
     }
     for k, v in pairs(props or {}) do w[k] = v end
     state.windows[address] = w
+    table.insert(state.stacking, address)
     return w
   end
 
@@ -94,6 +96,7 @@ function M.new()
       fullscreen = dsp("window.fullscreen"),
       tag = dsp("window.tag"),
       close = dsp("window.close"),
+      alter_zorder = dsp("window.alter_zorder"),
     },
   }
 
@@ -116,6 +119,16 @@ function M.new()
           on_focus_under_fullscreen = state.config["misc.on_focus_under_fullscreen"],
         }
       end
+    elseif d.kind == "window.alter_zorder" then
+      local w = resolve(a.window)
+      assert(a.mode == "top" or a.mode == "bottom", "bad z-order mode")
+      for i, address in ipairs(state.stacking) do
+        if address == w.address then table.remove(state.stacking, i); break end
+      end
+      if a.mode == "top" then table.insert(state.stacking, w.address)
+      else table.insert(state.stacking, 1, w.address) end
+      -- Hyprland simulates pointer movement here, which can change focus.
+      state.focused = nil
     elseif d.kind == "window.move" then
       local w = resolve(a.window)
       assert(a.follow == false, "Taskbox must never follow a moved window")
@@ -145,6 +158,9 @@ function M.new()
     elseif d.kind == "window.close" then
       local w = resolve(a.window)
       state.windows[w.address] = nil
+      for i, address in ipairs(state.stacking) do
+        if address == w.address then table.remove(state.stacking, i); break end
+      end
       fire("window.close", w)
     else
       error("mock doesn't know dispatcher " .. d.kind)

@@ -213,11 +213,21 @@ end
 
 ------------------------------------------------------------------ actions
 
+-- Keyboard focus alone doesn't raise overlapping floating windows. Raise
+-- first: altering z-order simulates pointer movement, so focus must be last.
+local function focus_window(window)
+  if window.floating then
+    hl.dispatch(hl.dsp.window.alter_zorder({ mode = "top", window = selector(window.address) }))
+  end
+  hl.dispatch(hl.dsp.focus({ window = selector(window.address) }))
+end
+
 -- Focus without warping the cursor onto the window.
 function T.focus(address)
-  if not window_for(address) then return reply("missing") end
+  local window = window_for(address)
+  if not window then return reply("missing") end
   with_config("cursor", "no_warps", true, function()
-    hl.dispatch(hl.dsp.focus({ window = selector(address) }))
+    focus_window(window)
   end)
   return reply("focused")
 end
@@ -270,10 +280,11 @@ end
 
 -- Restore a minimized window onto the given workspace and focus it.
 function T.restore(address, workspace)
-  if not window_for(address) then return reply("missing") end
+  local window = window_for(address)
+  if not window then return reply("missing") end
   with_config("cursor", "no_warps", true, function()
     hl.dispatch(hl.dsp.window.move({ workspace = tostring(workspace), follow = false, window = selector(address) }))
-    hl.dispatch(hl.dsp.focus({ window = selector(address) }))
+    focus_window(window)
   end)
   return reply("restored")
 end

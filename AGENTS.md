@@ -293,6 +293,7 @@ tools/dev.sh test live --full   # also Hyprland reload, shell restart, disable/e
                                 # 20-window stress, left-bar layout (~1–2 min, bar blinks)
 tools/dev.sh test live --facade # everything behind an exact 4.0.4 plugin facade (combines with --full)
 tools/dev.sh test multimonitor  # on a virtual second monitor (add --facade too)
+tools/dev.sh test floating     # floating focus/minimize/restore stacking on a headless monitor
 tools/dev.sh test renderers     # hover previews under OpenGL, GLES, Vulkan, software, llvmpipe
 tools/dev.sh test load          # the widget in an isolated Quickshell: every IPC call, no warnings
                                 # (add --windows for odd titles, a retitle storm, settle timing)

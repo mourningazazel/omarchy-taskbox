@@ -9,6 +9,7 @@
 #                                  live integration tests (see tests/live/run.sh)
 #   tools/dev.sh test multimonitor [--facade]
 #                                  on a virtual (headless) second monitor
+#   tools/dev.sh test floating     focus/minimize/restore stacking on a headless monitor
 #   tools/dev.sh test renderers    hover previews under each Qt renderer / GPU stack
 #   tools/dev.sh test load         the widget in an isolated Quickshell (safe any time)
 #   tools/dev.sh ipc <fn> [arg]    call the widget's IPC API (state, check, icon, …)
@@ -62,6 +63,9 @@ case "${1:-}" in
     fi
     if [[ ${2:-} == multimonitor ]]; then
       exec "$HERE/tests/live/multimonitor.sh" "${@:3}"
+    fi
+    if [[ ${2:-} == floating ]]; then
+      exec "$HERE/tests/live/floating.sh"
     fi
     if [[ ${2:-} == renderers ]]; then
       exec "$HERE/tests/renderers/run.sh" "${@:3}"
