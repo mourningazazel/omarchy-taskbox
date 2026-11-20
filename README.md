@@ -99,6 +99,9 @@ They can also be set with `omarchy bar set mourningazazel.taskbox <key>
 | `clickToMinimize` | `true` | Clicking the focused window minimizes it |
 | `showMinimized` | `true` | Keep minimized windows on the taskbar (dimmed) |
 | `minimizeWorkspace` | `"minimized"` | Special workspace minimized windows are parked on |
+| `bottomDock` | `false` | Move Taskbox into a separate bottom dock on each monitor. Use the window menu to send a window to another workspace from the dock. |
+| `dockAutoHide` | `false` | Hide the bottom dock until the pointer touches the bottom edge beneath it. Open menus keep it visible. |
+| `dockHeight` | `24` | Height of the separate bottom dock, from 24 to 96 logical pixels. |
 | `highlightColor` | `""` | Button highlight, `#rrggbb` (empty = the theme's). The settings popup has a colour picker with five colours that complement your theme's accent |
 | `preview` | `"minimized"` | Hover previews: `minimized` windows, `all` or `off` |
 

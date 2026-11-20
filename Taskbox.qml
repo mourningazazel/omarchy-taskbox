@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 import "lib/Logic.js" as Logic
@@ -33,6 +34,20 @@ BarWidget {
   readonly property var config: Logic.normalizeSettings(settings)
   readonly property int maxWidth: config.maxWidth
   readonly property int minWidth: config.minWidth
+  readonly property bool bottomDock: config.bottomDock
+  readonly property bool dockAutoHide: config.dockAutoHide
+  readonly property bool verticalLayout: !bottomDock && vertical
+  readonly property int taskSize: bottomDock ? config.dockHeight : barSize
+  readonly property string panelPosition: bottomDock ? "bottom" : (host ? host.position : "top")
+  readonly property var popupHost: bottomDock ? dockPopupHost : host
+  readonly property Item taskAnchor: bottomDock ? dockBody : root
+  onBottomDockChanged: {
+    close()
+    windowPreview.hide()
+    dockTooltip.target = null
+    finishDrag(false)
+    Qt.callLater(recompute)
+  }
   readonly property bool showTitle: config.showTitle
   readonly property string closeButton: config.closeButton
   readonly property bool middleClickClose: config.middleClickClose
@@ -166,9 +181,9 @@ BarWidget {
   // on a left/right one (where buttons are icon-only squares).
   property real available: vertical ? barSize * 4 : maxWidth
   readonly property int count: windows.length
-  readonly property int maxExtent: vertical ? barSize : (showTitle ? maxWidth : minWidth)
-  readonly property int minExtent: vertical ? barSize : minWidth
-  readonly property int overflowExtent: vertical ? barSize : Style.space(30)
+  readonly property int maxExtent: verticalLayout ? taskSize : (showTitle ? maxWidth : minWidth)
+  readonly property int minExtent: verticalLayout ? taskSize : minWidth
+  readonly property int overflowExtent: verticalLayout ? taskSize : Style.space(30)
 
   readonly property var _layout: Logic.layout(count, available, minExtent, maxExtent, overflowExtent, spacing)
   readonly property int fitCount: _layout.fitCount
@@ -184,9 +199,143 @@ BarWidget {
 
   // Stays mapped (at a sliver) while settings are open on an empty workspace,
   // so the popup has something to anchor to.
-  visible: count > 0 || opened
+  visible: !bottomDock && (count > 0 || opened)
   implicitWidth: !visible ? 0 : (vertical ? barSize : Math.max(contentExtent, 1))
   implicitHeight: !visible ? 0 : (vertical ? Math.max(contentExtent, 1) : barSize)
+
+  QtObject {
+    id: dockPopupHost
+    readonly property string position: "bottom"
+    readonly property int barSize: root.taskSize
+    property var activePopout: null
+    function requestPopout(owner) { activePopout = owner }
+    function releasePopout(owner) { if (activePopout === owner) activePopout = null }
+  }
+
+  function showTaskTooltip(item, text) {
+    if (!bottomDock) {
+      if (host) host.showTooltip(item, text)
+      return
+    }
+    dockTooltip.target = item
+    dockTooltip.label = text
+  }
+
+  function hideTaskTooltip(item) {
+    if (!bottomDock && host) host.hideTooltip(item)
+    if (dockTooltip.target === item) dockTooltip.target = null
+  }
+
+  PopupWindow {
+    id: dockTooltip
+    property Item target: null
+    property string label: ""
+    visible: dock.bodyVisible && !!target && root.popup === ""
+    color: "transparent"
+    implicitWidth: tooltipText.implicitWidth + Style.space(12)
+    implicitHeight: tooltipText.implicitHeight + Style.space(8)
+
+    anchor {
+      id: dockTooltipAnchor
+      window: dock
+      adjustment: PopupAdjustment.Slide
+      edges: Edges.Top | Edges.Left
+      gravity: Edges.Bottom | Edges.Right
+      rect.width: 1
+      rect.height: 1
+      onAnchoring: {
+        if (!dockTooltip.target) return
+        const item = dockTooltip.target
+        const point = item.mapToItem(dock.contentItem, item.width / 2, 0)
+        dockTooltipAnchor.rect.x = Math.round(point.x - dockTooltip.implicitWidth / 2)
+        dockTooltipAnchor.rect.y = -dockTooltip.implicitHeight - Style.space(4)
+      }
+    }
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Style.cornerRadius
+      color: Color.background
+      Text {
+        id: tooltipText
+        anchors.centerIn: parent
+        text: dockTooltip.label
+        textFormat: Text.PlainText
+        color: root.fg
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+      }
+    }
+  }
+
+  PanelWindow {
+    id: dock
+    screen: root.screenRef
+    readonly property bool fullscreen: root.bottomDock && root.windows.some(function(t) {
+      const ipc = t.lastIpcObject
+      return t.workspace === root.workspace && ipc && ipc.fullscreen >= 2
+    })
+    property bool revealed: false
+    readonly property bool bodyVisible: visible && (!root.dockAutoHide || revealed || root.popup !== "")
+    visible: root.bottomDock && !!root.screenRef && (!fullscreen || root.opened) && (root.count > 0 || root.opened)
+    onVisibleChanged: {
+      if (!visible) {
+        revealed = false
+        windowPreview.hide()
+        dockTooltip.target = null
+        root.close()
+      }
+    }
+    onBodyVisibleChanged: {
+      if (!bodyVisible) {
+        windowPreview.hide()
+        dockTooltip.target = null
+      }
+    }
+    anchors { left: true; right: true; bottom: true }
+    implicitHeight: root.taskSize
+    color: "transparent"
+    exclusiveZone: 0
+    WlrLayershell.namespace: "taskbox-dock"
+    WlrLayershell.layer: WlrLayer.Top
+    mask: Region {
+      item: dock.bodyVisible ? dockBody : null
+      Region { item: edgeTrigger.visible ? edgeTrigger : null }
+    }
+
+    Timer {
+      interval: 250
+      running: dock.visible && root.dockAutoHide && dock.revealed &&
+        !dockHover.hovered && root.popup === ""
+      onTriggered: dock.revealed = false
+    }
+
+    Item {
+      id: edgeTrigger
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      width: dockBody.width
+      height: Math.max(2, Style.space(3))
+      visible: dock.visible && root.dockAutoHide && !dock.bodyVisible
+
+      HoverHandler {
+        onHoveredChanged: if (hovered) dock.revealed = true
+      }
+    }
+    onWidthChanged: if (root.bottomDock) Qt.callLater(root.recompute)
+
+    Rectangle {
+      id: dockBody
+      visible: dock.bodyVisible
+      HoverHandler { id: dockHover; blocking: false }
+      anchors.horizontalCenter: parent.horizontalCenter
+      width: Math.max(root.contentExtent, root.taskSize)
+      height: root.taskSize
+      radius: Style.cornerRadius
+      color: Color.background
+      border.color: Util.alpha(root.fg, 0.18)
+    }
+  }
 
   // The bar's ModuleSlot wrapping this widget: our nearest ancestor that
   // hosts us as its activeItem.
@@ -224,6 +373,10 @@ BarWidget {
     var win = root.QsWindow.window
     var slot = mySlot()
     if (!win) return
+    if (bottomDock) {
+      available = Math.max(0, (screenRef ? screenRef.width : 0) - trailingGap * 2)
+      return
+    }
     if (!slot) {
       // Hosted outside a bar slot (a tray, a drawer, a replacement bar we
       // don't recognise): natural size, capped at half the screen.
@@ -363,7 +516,7 @@ BarWidget {
   }
 
   function beginDrag(t, scenePoint) {
-    if (!integrated || !t) return false
+    if (bottomDock || !integrated || !t) return false
     dragToplevel = t
     dragPoint = scenePoint
     dropTarget = workspaceAt(scenePoint)
@@ -517,11 +670,12 @@ BarWidget {
   }
 
   Grid {
+    parent: root.taskAnchor
     anchors.left: parent.left
     anchors.top: parent.top
-    columns: root.vertical ? 1 : Math.max(1, root.shownWindows.length + 1)
+    columns: root.verticalLayout ? 1 : Math.max(1, root.shownWindows.length + 1)
     spacing: root.spacing
-    visible: root.visible
+    visible: root.bottomDock ? dock.bodyVisible : root.visible
 
     Repeater {
       id: buttons
@@ -531,16 +685,16 @@ BarWidget {
         required property var modelData
         taskbar: root
         toplevel: modelData
-        width: root.vertical ? root.barSize : root.buttonExtent
-        height: root.vertical ? root.buttonExtent : root.barSize
+        width: root.verticalLayout ? root.taskSize : root.buttonExtent
+        height: root.verticalLayout ? root.buttonExtent : root.taskSize
       }
     }
 
     // "+N" overflow button.
     Item {
       visible: root.overflowing
-      width: root.vertical ? root.barSize : root.overflowExtent
-      height: root.vertical ? root.overflowExtent : root.barSize
+      width: root.verticalLayout ? root.taskSize : root.overflowExtent
+      height: root.verticalLayout ? root.overflowExtent : root.taskSize
 
       Rectangle {
         anchors.fill: parent
@@ -613,9 +767,9 @@ BarWidget {
 
   PopupCard {
     id: overflowPopup
-    anchorItem: root
+    anchorItem: root.taskAnchor
     owner: root.popupOwner
-    bar: root.host
+    bar: root.popupHost
     open: root.popup === "overflow"
     contentWidth: overflowPopup.fittedContentWidth(Style.space(280))
     contentHeight: overflowPopup.fittedContentHeight(overflowColumn.implicitHeight)
@@ -642,14 +796,14 @@ BarWidget {
 
   TaskMenu {
     taskbar: root
-    anchorItem: root.menuAnchor || root
+    anchorItem: root.menuAnchor || root.taskAnchor
     toplevel: root.menuToplevel
     open: root.popup === "menu" && root.menuToplevel !== null
   }
 
   SettingsPopup {
     taskbar: root
-    anchorItem: root
+    anchorItem: root.taskAnchor
     open: root.popup === "settings"
   }
 
@@ -662,7 +816,8 @@ BarWidget {
       barLength: root.QsWindow.window ? Math.round(vertical ? root.QsWindow.window.height : root.QsWindow.window.width) : 0,
       ipcPrimary: ipcPrimary,
       workspace: workspace ? workspace.id : null,
-      vertical: vertical,
+      vertical: verticalLayout,
+      dockVisible: dock.bodyVisible,
       barSize: barSize,
       facade: emulateFacade,
       slotFound: mySlot() !== null,

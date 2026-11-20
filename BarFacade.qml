@@ -14,6 +14,8 @@ QtObject {
   id: facade
 
   property var real: null
+  readonly property string pluginId: "mourningazazel.taskbox"
+  readonly property string moduleName: pluginId
   // Third-party plugins get a scoped shell facade here; Taskbox doesn't use it.
   readonly property var shell: null
 
@@ -28,6 +30,8 @@ QtObject {
   readonly property bool transparent: real ? real.transparent : false
   readonly property bool foregroundAnimationEnabled: real ? real.foregroundAnimationEnabled : true
   readonly property bool centerSectionRevealHeld: real ? real.centerSectionRevealHeld : false
+  readonly property bool traySectionDragActive: real ? !!real.traySectionDragActive : false
+  readonly property bool traySectionPopoutOpen: real ? !!real.traySectionPopoutOpen : false
   readonly property bool centerHoverRevealSuppressed: false
   readonly property var activePopout: real ? real.activePopout : null
   readonly property var clickTargets: []
@@ -42,6 +46,8 @@ QtObject {
   function unregisterClickTarget(target) { if (real && real.unregisterClickTarget) real.unregisterClickTarget(target) }
   function requestPopout(owner) { if (real) real.requestPopout(owner) }
   function releasePopout(owner) { if (real) real.releasePopout(owner) }
+  function notePopoutCard(card) { if (real && real.notePopoutCard) real.notePopoutCard(card) }
+  function popoutCardFor(owner) { return real && real.popoutCardFor ? real.popoutCardFor(owner) : null }
   function switchPanelFrom(owner, direction) { return real && real.switchPanelFrom ? real.switchPanelFrom(owner, direction) : false }
   function targetBelongsToWindow(target, window) { return real && real.targetBelongsToWindow ? real.targetBelongsToWindow(target, window) : false }
   function moduleWidgets(id) { return real ? real.moduleWidgets(String(id || "")) : [] }

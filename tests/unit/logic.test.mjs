@@ -15,9 +15,23 @@ const LUA = process.env.LUA || "lua"
 const bash = (script) => execFileSync("bash", ["-c", script], { encoding: "utf8" })
 
 describe("settings", () => {
+  test("bottom dock is opt-in and accepts bar settings strings", () => {
+    assert.equal(L.normalizeSettings({ bottomDock: "true" }).bottomDock, true)
+    assert.equal(L.normalizeSettings({ bottomDock: "false" }).bottomDock, false)
+    assert.equal(L.normalizeSettings({ dockAutoHide: "true" }).dockAutoHide, true)
+    assert.equal(L.normalizeSettings({ dockAutoHide: "false" }).dockAutoHide, false)
+  })
+
+  test("dock height accepts numbers and numeric strings within bounds", () => {
+    assert.equal(L.normalizeSettings({ dockHeight: "48" }).dockHeight, 48)
+    assert.equal(L.normalizeSettings({ dockHeight: 1 }).dockHeight, 24)
+    assert.equal(L.normalizeSettings({ dockHeight: 200 }).dockHeight, 96)
+    assert.equal(L.normalizeSettings({ dockHeight: "large" }).dockHeight, 24)
+  })
+
   test("defaults when empty", () => {
     same(L.normalizeSettings({}), {
-      maxWidth: 200, minWidth: 44, showTitle: true, closeButton: "hover",
+      maxWidth: 200, minWidth: 44, bottomDock: false, dockAutoHide: false, dockHeight: 24, showTitle: true, closeButton: "hover",
       middleClickClose: true, clickToMinimize: true, showMinimized: true, minimizeWorkspace: "minimized",
       highlightColor: "", preview: "minimized",
     })

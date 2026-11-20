@@ -12,7 +12,7 @@ PopupCard {
   property var taskbar: null
   property var toplevel: null
 
-  bar: taskbar ? taskbar.host : null
+  bar: taskbar ? taskbar.popupHost : null
   owner: taskbar ? taskbar.popupOwner : null
   contentWidth: menu.fittedContentWidth(Style.space(240))
   contentHeight: menu.fittedContentHeight(column.implicitHeight)

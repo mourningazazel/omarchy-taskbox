@@ -38,13 +38,13 @@ Item {
     hue = hsv.h
     sat = hsv.s
     val = hsv.v
-    wheel.requestPaint()
+    hueCanvas.requestPaint()
   }
 
   function choose() { picked(current) }
 
   onVisibleChanged: if (visible) syncFrom(value)
-  onValChanged: wheel.requestPaint()
+  onValChanged: hueCanvas.requestPaint()
 
   implicitHeight: arrow + card.implicitHeight
 
@@ -93,7 +93,7 @@ Item {
 
         // Hue around the wheel, saturation outward; brightness darkens it.
         Canvas {
-          id: wheel
+          id: hueCanvas
           width: picker.wheelSize
           height: picker.wheelSize
           antialiasing: true
@@ -126,12 +126,12 @@ Item {
 
           // Marker at the current hue/saturation.
           Rectangle {
-            readonly property real r: wheel.width / 2 - 1
+            readonly property real r: hueCanvas.width / 2 - 1
             width: Style.space(12)
             height: width
             radius: width / 2
-            x: wheel.width / 2 + Math.cos(picker.hue * Math.PI / 180) * picker.sat * r - width / 2
-            y: wheel.height / 2 + Math.sin(picker.hue * Math.PI / 180) * picker.sat * r - height / 2
+            x: hueCanvas.width / 2 + Math.cos(picker.hue * Math.PI / 180) * picker.sat * r - width / 2
+            y: hueCanvas.height / 2 + Math.sin(picker.hue * Math.PI / 180) * picker.sat * r - height / 2
             color: picker.current
             border.width: 2
             border.color: picker.val > 0.55 ? "#000000" : "#ffffff"
@@ -142,7 +142,7 @@ Item {
             preventStealing: true
             cursorShape: Qt.CrossCursor
             function pick(mouse) {
-              var c = wheel.width / 2
+              var c = hueCanvas.width / 2
               var dx = mouse.x - c, dy = mouse.y - c
               var deg = Math.atan2(dy, dx) * 180 / Math.PI
               picker.hue = deg < 0 ? deg + 360 : deg
