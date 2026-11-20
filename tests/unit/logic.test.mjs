@@ -14,6 +14,22 @@ const same = (actual, expected, ...msg) =>
 const LUA = process.env.LUA || "lua"
 const bash = (script) => execFileSync("bash", ["-c", script], { encoding: "utf8" })
 
+test("filters untitled floating Steam XWayland popups", () => {
+  const popup = { class: "steam", xwayland: true, floating: true, initialTitle: "" }
+  assert.equal(L.isSteamPopup(popup, ""), true)
+  assert.equal(L.isSteamPopup(popup, "Steam"), false)
+  assert.equal(L.isSteamPopup({ ...popup, initialTitle: "Steam" }, ""), false)
+  assert.equal(L.isSteamPopup({ ...popup, class: "other" }, ""), false)
+  assert.equal(L.isSteamPopup({ ...popup, floating: false }, ""), false)
+  assert.equal(L.isSteamPopup({ ...popup, xwayland: false }, ""), false)
+  assert.equal(L.isSteamPopup(undefined, ""), false)
+  assert.equal(L.isSteamPopup(undefined, "", true), true)
+  assert.equal(L.isSteamPopup(undefined, "Steam", true), false)
+  assert.equal(L.steamPopupOpened("abc,2,steam,"), "abc")
+  assert.equal(L.steamPopupOpened("abc,2,steam,Steam"), "")
+  assert.equal(L.steamPopupOpened("abc,2,other,"), "")
+})
+
 describe("settings", () => {
   test("defaults when empty", () => {
     same(L.normalizeSettings({}), {
