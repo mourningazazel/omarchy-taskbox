@@ -14,7 +14,7 @@ cd "$ROOT"
 fail=0
 
 members() {  # public properties + functions of a QtObject file
-  grep -oE '^\s+(readonly )?property [a-z]+ [A-Za-z_]+|^\s+function [A-Za-z_]+' "$1" \
+  grep -oE '^\s+((readonly|required) )?property [a-z]+ [A-Za-z_]+|^\s+function [A-Za-z_]+' "$1" \
     | awk '{print $NF}' | grep -v '^_' | grep -vx 'real' | sort -u
 }
 

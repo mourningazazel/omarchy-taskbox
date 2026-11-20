@@ -23,6 +23,9 @@
       "maxWidth": 200,
       "minWidth": 44,
       "showTitle": true,
+      "bottomDock": false,
+      "dockAutoHide": false,
+      "dockHeight": 24,
       "closeButton": "hover",
       "middleClickClose": true,
       "clickToMinimize": true,
@@ -32,6 +35,24 @@
       "preview": "minimized"
     },
     "schema": [
+      {
+        "key": "dockHeight",
+        "type": "number",
+        "label": "Dock height (px)",
+        "description": "Height of the separate bottom dock, from 24 to 96 px"
+      },
+      {
+        "key": "dockAutoHide",
+        "type": "boolean",
+        "label": "Auto-hide bottom dock",
+        "default": false
+      },
+      {
+        "key": "bottomDock",
+        "type": "boolean",
+        "label": "Separate bottom dock",
+        "default": false
+      },
       {
         "key": "maxWidth",
         "type": "number",

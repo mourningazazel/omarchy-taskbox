@@ -274,7 +274,7 @@ Item {
         if (!target || !win || !win.contentItem) return
         var gap = Style.space(6)
         var w = popup.implicitWidth, h = popup.implicitHeight
-        var position = preview.taskbar.host ? preview.taskbar.host.position : "top"
+        var position = preview.taskbar.panelPosition
         var x = target.width / 2 - w / 2, y = target.height + gap
         if (position === "bottom") y = -h - gap
         else if (position === "left") { x = target.width + gap; y = target.height / 2 - h / 2 }

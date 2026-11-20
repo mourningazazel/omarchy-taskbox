@@ -11,8 +11,8 @@ Item {
   property var toplevel: null
   property bool inPopup: false
 
-  readonly property bool compact: taskbar.vertical && !inPopup
-  readonly property bool iconOnly: !taskbar.vertical && !taskbar.showTitle && !inPopup
+  readonly property bool compact: taskbar.verticalLayout && !inPopup
+  readonly property bool iconOnly: !taskbar.verticalLayout && !taskbar.showTitle && !inPopup
   readonly property bool minimized: taskbar.isMinimized(toplevel)
   readonly property bool active: toplevel ? toplevel.activated && !minimized : false
   readonly property bool urgent: toplevel ? toplevel.urgent : false
@@ -58,8 +58,8 @@ Item {
     && !taskbar.dragging && !showsPreview() && !titleFullyVisible
   onWantsTooltipChanged: {
     if (!taskbar.host) return
-    if (wantsTooltip) taskbar.host.showTooltip(button, minimized ? title + " (minimized)" : title)
-    else taskbar.host.hideTooltip(button)
+    if (wantsTooltip) taskbar.showTaskTooltip(button, minimized ? title + " (minimized)" : title)
+    else taskbar.hideTaskTooltip(button)
   }
 
   // The window can close (or move away) under the pointer or mid-drag; don't
@@ -69,8 +69,8 @@ Item {
     if (hovered) {
       taskbar.setHover(toplevel, false)
       if (taskbar.host) {
-        taskbar.host.hideTooltip(button)
-        taskbar.host.hideTooltip(closeArea)
+        taskbar.hideTaskTooltip(button)
+        taskbar.hideTaskTooltip(closeArea)
       }
     }
     if (mainMouse.dragged && mainMouse.dragMode === "window") taskbar.finishDrag(false)
@@ -138,7 +138,7 @@ Item {
       if (!dragged) {
         if (Math.abs(mouse.x - pressPoint.x) + Math.abs(mouse.y - pressPoint.y) < Style.space(8)) return
         dragged = true
-        if (taskbar.host) taskbar.host.hideTooltip(button)
+        if (taskbar.host) taskbar.hideTaskTooltip(button)
         dragMode = taskbar.beginDrag(button.toplevel, scene) ? "window" : "none"   // none: no Hyprland integration
       } else if (dragMode === "window") {
         taskbar.updateDrag(scene)
@@ -158,7 +158,7 @@ Item {
     onClicked: function(mouse) {
       if (dragged) { dragged = false; return }
       if (mouse.button === Qt.RightButton) {
-        if (taskbar.host) taskbar.host.hideTooltip(button)
+        if (taskbar.host) taskbar.hideTaskTooltip(button)
         taskbar.openMenu(button, button.toplevel)
         return
       }
@@ -171,7 +171,7 @@ Item {
     }
     onExited: {
       button.previewSuppressed = false
-      if (taskbar.host) taskbar.host.hideTooltip(button)
+      if (taskbar.host) taskbar.hideTaskTooltip(button)
     }
   }
 
@@ -244,8 +244,8 @@ Item {
       // Force kill vs close is decided from the real Alt key state
       // (Taskbox.closeFromButton); altHeld only colours the × red.
       onClicked: taskbar.closeFromButton(button.toplevel)
-      onEntered: if (taskbar.bar && !button.inPopup) taskbar.host.showTooltip(closeArea, taskbar.altHeld ? "Force kill" : "Close (Alt+click: force kill)")
-      onExited: if (taskbar.host) taskbar.host.hideTooltip(closeArea)
+      onEntered: if (taskbar.bar && !button.inPopup) taskbar.showTaskTooltip(closeArea, taskbar.altHeld ? "Force kill" : "Close (Alt+click: force kill)")
+      onExited: if (taskbar.host) taskbar.hideTaskTooltip(closeArea)
     }
   }
 }

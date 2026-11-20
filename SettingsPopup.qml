@@ -17,7 +17,7 @@ KeyboardPanel {
 
   property var taskbar: null
 
-  bar: taskbar ? taskbar.host : null
+  bar: taskbar ? taskbar.popupHost : null
   owner: taskbar ? taskbar.popupOwner : null
   contentWidth: popup.fittedContentWidth(Style.space(340))
   contentHeight: popup.fittedContentHeight(column.implicitHeight)
@@ -180,6 +180,30 @@ KeyboardPanel {
       onModified: function(v) { popup.saveLater("minWidth", v) }
     }
 
+    SwitchRow {
+      label: "Separate bottom dock"
+      checked: popup.taskbar.bottomDock
+      onToggled: popup.taskbar.saveSetting("bottomDock", !popup.taskbar.bottomDock)
+    }
+    SwitchRow {
+      visible: popup.taskbar.bottomDock
+      label: "Auto-hide bottom dock"
+      checked: popup.taskbar.dockAutoHide
+      onToggled: popup.taskbar.saveSetting("dockAutoHide", !popup.taskbar.dockAutoHide)
+    }
+    NumberField {
+      visible: popup.taskbar.bottomDock
+      width: column.width
+      label: "Dock height (px)"
+      from: 24
+      to: 96
+      stepSize: 4
+      value: popup.taskbar.config.dockHeight
+      foreground: popup.fg
+      accent: popup.taskbar.accent
+      fontFamily: popup.fontFamily
+      onModified: function(v) { popup.saveLater("dockHeight", v) }
+    }
     SwitchRow {
       label: "Window titles"
       checked: popup.taskbar.showTitle
