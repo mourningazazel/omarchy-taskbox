@@ -30,6 +30,10 @@ Item {
   property bool _helloDone: false
   property int _attachAttempts: 0
 
+  // Quickshell can add a window before it has fetched the full client metadata.
+  property var steamPopupCandidates: ({})
+  property int steamPopupRevision: 0
+
   signal originsReceived(var origins)
 
   function run(command) {
@@ -73,6 +77,19 @@ Item {
   Connections {
     target: Hyprland
     function onRawEvent(event) {
+      if (event.name === "openwindow") {
+        const opened = Logic.steamPopupOpened(event.data)
+        if (opened) {
+          bridge.steamPopupCandidates[opened] = true
+          bridge.steamPopupRevision++
+        }
+      } else if (event.name === "closewindow") {
+        const closed = Logic.addressKey(event.data)
+        if (bridge.steamPopupCandidates[closed]) {
+          delete bridge.steamPopupCandidates[closed]
+          bridge.steamPopupRevision++
+        }
+      }
       var e = Logic.parseEvent(event.name, event.data)
       if (!e) return
       if (e.type === "reloaded") {

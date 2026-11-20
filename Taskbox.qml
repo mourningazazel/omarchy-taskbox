@@ -133,10 +133,11 @@ BarWidget {
     return !!(t && t.workspace && Logic.isMinimizedWorkspace(t.workspace.name, minimizeWorkspace))
   }
 
-  // Every toplevel as a plain record for Logic; also prunes closed windows
+  // Task windows as plain records for Logic; also prunes closed windows
   // (addresses are reused).
   readonly property var _records: {
     var rev = _stateRev
+    var popupRev = hypr.steamPopupRevision
     var all = Hyprland.toplevels.values
     var records = []
     var keys = []
@@ -145,7 +146,7 @@ BarWidget {
       var ws = t.workspace
       var key = keyOf(t)
       keys.push(key)
-      if (!ws) continue
+      if (!ws || Logic.isSteamPopup(t.lastIpcObject, t.title, hypr.steamPopupCandidates[key])) continue
       records.push({ key: key, workspaceId: ws.id, workspaceName: ws.name, activated: t.activated, toplevel: t })
     }
     Logic.prune(_state, keys)
