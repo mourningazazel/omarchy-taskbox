@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 — Unreleased
+
+- Add an optional separate bottom dock on each monitor, with adjustable
+  height and auto-hide.
+- Hide untitled floating Steam hover popups from the taskbar.
+- Raise floating windows when focusing or restoring them.
+
 ## 1.2.1 — 2026-09-26
 
 - Previews no longer risk a "Process crashed: grim" notification. grim 1.5.0
